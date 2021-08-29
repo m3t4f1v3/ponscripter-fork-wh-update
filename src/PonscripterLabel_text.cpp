@@ -227,6 +227,8 @@ PonscripterLabel::drawString(const char* str, rgb_t color, Fontinfo* info,
             continue;
         }
 
+        if (!*str) { break; }
+
         if (*str == 0x0a || (*str == '\\' && info->is_newline_accepted)) {
             info->newLine();
             str++;

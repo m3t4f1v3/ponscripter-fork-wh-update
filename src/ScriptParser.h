@@ -102,9 +102,9 @@ public:
 #ifdef MACOSX
     void checkBundled();
     bool isBundled() {return is_bundled; }
-    pstring bundleResPath() { return bundle_res_path; }
-    pstring bundleAppPath() { return bundle_app_path; }
-    pstring bundleAppName() { return bundle_app_name; }
+    const pstring& bundleResPath() { return bundle_res_path; }
+    const pstring& bundleAppPath() { return bundle_app_path; }
+    const pstring& bundleAppName() { return bundle_app_name; }
 #endif
 
     /* Command */

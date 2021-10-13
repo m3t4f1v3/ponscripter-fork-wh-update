@@ -1381,6 +1381,13 @@ int PonscripterLabel::eventLoop()
 
                 /* Refresh time since rerender does take some odd ms */
                 current_time = SDL_GetTicks();
+
+                if ((current_time - last_refresh) >= (refresh_delay - 1)) {
+                    // Some systems delay present if you do it too fast
+                    // If `rerender` gets delayed, and some other event comes in during that time, the below code will skip timer events expecting to get another chance at the end of the queue... except when that comes another rerender happens with its delay...
+                    // To avoid this issue, make sure there's always a few ms before the next rerender is expected to happen
+                    last_refresh = current_time - (refresh_delay - 2);
+                }
             }
 
             SDL_PumpEvents();

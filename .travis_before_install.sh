@@ -28,8 +28,18 @@ if [ -z "$STEAMLESS" ] && [ -n "$SSH_KEY" ]; then
 	fi
 
 	# Steam SDK
-	scp -o StrictHostKeyChecking=no -i key "${DOWNLOAD_SERVER}/steamworks_sdk_129a.zip" . 2>/dev/null
-	unzip -d src/extlib/src/steam-sdk/ steamworks_sdk_129a.zip
+	# Umineko is great and ships a different version of the steam api dll for each os
+	case "$TRAVIS_OS_NAME" in
+	osx)
+		scp -o StrictHostKeyChecking=no -i key "${DOWNLOAD_SERVER}/steamworks_sdk_129a.zip" . 2>/dev/null
+		unzip -d src/extlib/src/steam-sdk/ steamworks_sdk_129a.zip;;
+	windows)
+		curl "https://partner.steamgames.com/downloads/steamworks_sdk_134.zip" -o steamworks_sdk_134.zip
+		unzip -d src/extlib/src/steam-sdk/ steamworks_sdk_134.zip;;
+	linux)
+		curl "https://partner.steamgames.com/downloads/steamworks_sdk_141.zip" -o steamworks_sdk_141.zip
+		unzip -d src/extlib/src/steam-sdk/ steamworks_sdk_141.zip;;
+	esac
 	mv src/extlib/src/steam-sdk/sdk/* src/extlib/src/steam-sdk/
 fi
 

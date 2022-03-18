@@ -199,6 +199,7 @@ int PonscripterLabel::playSound(const pstring& filename, int format,
         buffer = music_buffer;
     }
     else{
+        if (lastRenderEvent < RENDER_EVENT_LOAD_AUDIO) { lastRenderEvent = RENDER_EVENT_LOAD_AUDIO; }
         buffer = new unsigned char[length];
         script_h.cBR->getFile( filename, buffer );
     }

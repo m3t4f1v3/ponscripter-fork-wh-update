@@ -410,6 +410,7 @@ public:
         RENDER_EVENT_UNKNOWN = 0,
         RENDER_EVENT_TEXT,
         RENDER_EVENT_EFFECT,
+        RENDER_EVENT_LOAD_AUDIO,
         RENDER_EVENT_LOAD_IMAGE,
     };
     /// For render time logging

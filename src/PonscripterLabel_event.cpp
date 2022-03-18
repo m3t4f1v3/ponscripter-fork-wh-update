@@ -1418,6 +1418,7 @@ int PonscripterLabel::eventLoop()
                             case RENDER_EVENT_UNKNOWN:    eventName = "TimerEvent"; break;
                             case RENDER_EVENT_TEXT:       eventName = "Text";       break;
                             case RENDER_EVENT_EFFECT:     eventName = "Effect";     break;
+                            case RENDER_EVENT_LOAD_AUDIO: eventName = "AudioLoad";  break;
                             case RENDER_EVENT_LOAD_IMAGE: eventName = "ImageLoad";  break;
                         }
                         fprintf(renderTimesFile, "%llu,%s,%f\n", frameNo, eventName, msElapsed);

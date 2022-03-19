@@ -375,7 +375,10 @@ int PonscripterLabel::clickWait(bool display_char)
 {
     const char* c = script_h.getStrBuf(string_buffer_offset);
 
-    if ((skip_flag || draw_one_page_flag || ctrl_pressed_status) &&
+    bool enabled = current_read_language == -1 || current_read_language == current_language;
+    display_char &= enabled;
+
+    if ((skip_flag || draw_one_page_flag || ctrl_pressed_status || !enabled) &&
         !textgosub_label) {
         clickstr_state = CLICK_NONE;
         skip_to_wait = 0;
@@ -392,9 +395,7 @@ int PonscripterLabel::clickWait(bool display_char)
         return RET_CONTINUE | RET_NOREAD;
     }
     else {
-        if (current_read_language == -1 || current_read_language == current_language) {
-            clickstr_state   = CLICK_WAIT;
-        }
+        clickstr_state = CLICK_WAIT;
         if (skip_to_wait || (sentence_font.wait_time == 0)) {
             skip_to_wait = 0;
             flush(refreshMode());
@@ -432,8 +433,11 @@ int PonscripterLabel::clickNewPage(bool display_char)
 {
     const char* c = script_h.getStrBuf(string_buffer_offset);
 
-    if (current_read_language == -1 || current_read_language == current_language) {
+    bool enabled = current_read_language == -1 || current_read_language == current_language;
+    if (enabled) {
         clickstr_state = CLICK_NEWPAGE;
+    } else {
+        display_char = false;
     }
 
     if (display_char) {
@@ -471,7 +475,7 @@ int PonscripterLabel::clickNewPage(bool display_char)
         doClickEnd();
     }
 
-    return RET_WAIT | RET_NOREAD;
+    return (enabled ? RET_WAIT : RET_CONTINUE) | RET_NOREAD;
 }
 
 

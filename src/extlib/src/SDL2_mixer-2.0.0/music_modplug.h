@@ -21,7 +21,7 @@
 
 #ifdef MODPLUG_MUSIC
 
-#include "modplug.h"
+#include "libmodplug/modplug.h"
 #include "SDL_rwops.h"
 #include "SDL_audio.h"
 #include "SDL_mixer.h"

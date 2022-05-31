@@ -29,17 +29,20 @@
 #include "graphics_common.h"
 
 SDL_Surface *PonscripterLabel::loadImage(const pstring& filename,
-                                        bool *has_alpha, bool twox)
+                                        bool *has_alpha, bool twox, bool isflipped)
 {
     if (!filename) return NULL;
 
-    SDL_Surface *tmp = NULL;
+    SDL_Surface *tmp = NULL, *tmpb = NULL;
     int location = BaseReader::ARCHIVE_TYPE_NONE;
 
-    if (filename[0] == '>')
-        tmp = createRectangleSurface(filename);
+    CBStringList filenames = filename.split("&", 4);
+
+    if (filenames[0][0] == '>')
+        tmp = createRectangleSurface(filenames[0]);
     else
-        tmp = createSurfaceFromFile(filename, &location);
+        tmp = createSurfaceFromFile(filenames[0], &location);
+
     if (tmp == NULL) return NULL;
 
     bool has_colorkey = false;
@@ -58,6 +61,27 @@ SDL_Surface *PonscripterLabel::loadImage(const pstring& filename,
 
     SDL_Surface *ret = SDL_ConvertSurface( tmp, image_surface->format, SDL_SWSURFACE );
     SDL_FreeSurface( tmp );
+
+    SDL_Rect subimage_rect;
+    CBStringList fileparts;
+    pstring sub_filename;
+
+    int num_images = filenames.size();
+    if (num_images > 1) {
+        for (int x = 1; x < num_images; x++) {
+            sub_filename = filenames[x];
+            fileparts = sub_filename.split(",", 3);
+            tmp = createSurfaceFromFile(fileparts[2], &location);
+            tmpb = SDL_ConvertSurface( tmp, image_surface->format, SDL_SWSURFACE );
+            subimage_rect.x = fileparts[0];
+            subimage_rect.y = fileparts[1];
+            subimage_rect.w = tmpb->w;
+            subimage_rect.h = tmpb->h;
+            SDL_BlitScaled(tmpb, NULL, ret, &subimage_rect);
+            SDL_FreeSurface( tmp );
+            SDL_FreeSurface( tmpb );
+        }
+    }
 
     // Hack to detect when a PNG image is likely to have an old-style
     // mask.  We assume that an old-style mask is intended if the
@@ -107,6 +131,24 @@ SDL_Surface *PonscripterLabel::loadImage(const pstring& filename,
           breakkey:
             SDL_UnlockSurface(ret);
         }
+    }
+
+
+    if (isflipped) {
+        SDL_Surface *retf = SDL_CreateRGBSurface(0, ret->w, ret->h, BPP, RMASK, GMASK, BMASK, AMASK);
+        Uint32* sourcepix;
+        Uint32* destpix;
+        for (int y=0; y<ret->h; ++y) {
+            sourcepix = (Uint32*)((char*)ret->pixels + y * ret->pitch);
+            destpix = (Uint32*)((char*)retf->pixels + (y + 1) * ret->pitch);
+            destpix--;
+            for (int x = 0; x < ret->w; x++, sourcepix++, destpix--) {
+                *destpix = *sourcepix;
+            }
+        }
+        // swap pointer to new surface
+        SDL_FreeSurface( ret );
+        ret = retf;
     }
 
     #ifdef USE_2X_MODE

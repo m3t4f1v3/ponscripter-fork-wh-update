@@ -180,6 +180,7 @@ public:
     int trapCommand(const pstring& cmd);
     int transbtnCommand(const pstring& cmd);
     int textspeedCommand(const pstring& cmd);
+    int textspeeddefaultCommand(const pstring& cmd);
     int textshowCommand(const pstring& cmd);
     int textonCommand(const pstring& cmd);
     int textoffCommand(const pstring& cmd);
@@ -205,6 +206,7 @@ public:
     int setwindow2Command(const pstring& cmd);
     int setwindowCommand(const pstring& cmd);
     int setcursorCommand(const pstring& cmd);
+    int setdefaultspeedCommand(const pstring& cmd);
     int selectCommand(const pstring& cmd);
     int savetimeCommand(const pstring& cmd);
     int saveonCommand(const pstring& cmd);
@@ -228,6 +230,7 @@ public:
     int ofscopyCommand(const pstring& cmd);
     int negaCommand(const pstring& cmd);
     int mspCommand(const pstring& cmd);
+    int movieCommand(const pstring& cmd);
     int mpegplayCommand(const pstring& cmd);
     int mp3volCommand(const pstring& cmd);
     int mp3fadeoutCommand(const pstring& cmd);
@@ -273,6 +276,7 @@ public:
     int getpageCommand(const pstring& cmd);
     int getmp3volCommand(const pstring& cmd);
     int getmouseposCommand(const pstring& cmd);
+    int getmouseoverCommand(const pstring& cmd);
     int getlogCommand(const pstring& cmd);
     int getinsertCommand(const pstring& cmd);
     int getfunctionCommand(const pstring& cmd);
@@ -578,6 +582,8 @@ private:
     bool getenter_flag;
     bool getcursor_flag;
     bool spclclk_flag;
+    bool getmouseover_flag;
+    int  getmouseover_min, getmouseover_max;
 
     void resetSentenceFont();
     void refreshMouseOverButton();
@@ -829,7 +835,8 @@ private:
     int setVolumeMute(bool do_mute);
 
     SubtitleDefs parseSubtitles(pstring file);
-    int playMPEG(const pstring& filename, bool click_flag,SubtitleDefs& subtitles);
+    int playMPEG(const pstring& filename, bool click_flag, bool loop_flag, bool mixsound_flag,
+        bool nosound_flag, SubtitleDefs& subtitles);
     void playAVI(const pstring& filename, bool click_flag);
 
     enum { WAVE_PLAY        = 0,
@@ -861,6 +868,9 @@ private:
 
     void executeLabel();
     int parseLine();
+    bool isStartKinsoku(wchar char_val);
+    bool isMiddleKinsoku(wchar char_val);
+    bool isEndKinsoku(wchar char_val);
 
     void mouseOverCheck(int x, int y);
 
@@ -889,7 +899,7 @@ private:
 
     /* ---------------------------------------- */
     /* Image processing */
-    SDL_Surface* loadImage(const pstring& file_name, bool* has_alpha = NULL, bool twox = false);
+    SDL_Surface* loadImage(const pstring& file_name, bool* has_alpha = NULL, bool twox = false, bool isflipped = false);
     SDL_Surface *createRectangleSurface(const pstring& filename);
     SDL_Surface *createSurfaceFromFile(const pstring& filename, int *location);
 

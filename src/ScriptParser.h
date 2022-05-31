@@ -67,6 +67,11 @@ struct OVInfo{
 #if defined(USE_OGG_VORBIS)
     ogg_int64_t length;
     ogg_int64_t pos;
+    int loop;
+    ogg_int64_t loop_start;
+    ogg_int64_t loop_end;
+    ogg_int64_t loop_len;
+    ogg_int64_t channels;
     OggVorbis_File ovf;
 #endif
 };
@@ -161,6 +166,7 @@ public:
     int incCommand(const pstring& cmd);
     int ifCommand(const pstring& cmd);
     int humanzCommand(const pstring& cmd);
+    int humanposCommand(const pstring& cmd);
     int gotoCommand(const pstring& cmd);
     int gosubCommand(const pstring& cmd);
     int globalonCommand(const pstring& cmd);

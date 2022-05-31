@@ -369,8 +369,33 @@ void PonscripterLabel::mouseMoveEvent(SDL_MouseMotionEvent* event)
     current_button_state.x = event->x;
     current_button_state.y = event->y;
 
-    if (event_mode & WAIT_BUTTON_MODE)
+    if (event_mode & WAIT_BUTTON_MODE) {
         mouseOverCheck(current_button_state.x, current_button_state.y);
+        if (getmouseover_flag &&
+            (current_over_button >= getmouseover_min) &&
+            (current_over_button <= getmouseover_max)){
+            // Ons used .set here, check for validity
+            //current_button_state.set(current_over_button);
+            //volatile_button_state.set(current_over_button);
+            current_button_state.button  = current_over_button;
+            volatile_button_state.button  = current_over_button;
+            playClickVoice();
+            stopAnimation(clickstr_state);
+            advancePhase();
+            // Onscripter returns boolean??
+            //return true;
+        /*
+        } else if (btnarea_flag &&
+                 ( ((btnarea_pos < 0) && (event->y > -btnarea_pos)) ||
+                   ((btnarea_pos > 0) && (event->y < btnarea_pos)) )){
+            current_button_state.set(-4);
+            volatile_button_state.set(-4);
+            playClickVoice();
+            stopCursorAnimation( clickstr_state );
+            return true;
+        */
+        }
+    }
 }
 
 
@@ -379,7 +404,8 @@ void PonscripterLabel::mousePressEvent(SDL_MouseButtonEvent* event)
     if (variable_edit_mode) return;
 
     if (automode_flag) {
-        remaining_time = -1;
+        //test fixing automode
+        //remaining_time = -1;
         setAutoMode(false);
         return;
     }
@@ -452,7 +478,8 @@ void PonscripterLabel::mouseWheelEvent(SDL_MouseWheelEvent* event) {
 
 
     if (automode_flag) {
-        remaining_time = -1;
+        //test fixing automode
+        //remaining_time = -1;
         setAutoMode(false);
         return;
     }
@@ -800,7 +827,8 @@ void PonscripterLabel::keyPressEvent(SDL_KeyboardEvent* event)
     }
 
     if (automode_flag && !automode_ignore) {
-        remaining_time = -1;
+        //test fixing automode
+        //remaining_time = -1;
         setAutoMode(false);
         return;
     }
@@ -1448,10 +1476,29 @@ int PonscripterLabel::eventLoop()
             }
             break;
 
-        case SDL_QUIT:
-            endCommand("end");
+        case SDL_QUIT: {
+            SDL_MessageBoxButtonData closeButtons[] = {
+                {0, 0, current_language == 1 ? "いいえ" : "No"},
+                {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, current_language == 1 ? "はい" : "Yes"},
+            };
+            SDL_MessageBoxData closeBoxData = {
+                SDL_MESSAGEBOX_WARNING, /* .flags */
+                screen, /* .window */
+                current_language == 1 ? "終了" : "Close", /* .title */
+                current_language == 1 ? "ゲームを終了しますか？" : "Are you sure you want to quit?", /* .message */
+                SDL_arraysize(closeButtons), /* .numbuttons */
+                closeButtons, /* .buttons */
+                NULL
+            };
+            int closeButtonId;
+            SDL_RaiseWindow(screen);
+            if (SDL_ShowMessageBox(&closeBoxData, &closeButtonId) < 0) {
+                endCommand("end");
+            } else if (closeButtonId == 1) {
+                endCommand("end");
+            }
             break;
-
+        }
         default:
             break;
         }

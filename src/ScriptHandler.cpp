@@ -430,6 +430,7 @@ const char* ScriptHandler::readStr()
     current_script = next_script;
     SKIP_SPACE(current_script);
     const char* buf = current_script;
+    bool did_concat = false;
 
     string_buffer.trunc(0);
 
@@ -437,9 +438,13 @@ const char* ScriptHandler::readStr()
         string_buffer += parseStr(&buf);
         buf = checkComma(buf);
         if (buf[0] != '+') break;
-
+        did_concat = true;
         buf++;
     }
+    if (did_concat) {
+        current_variable.type = VAR_NONE | VAR_CONST;
+    }
+
     next_script = buf;
 
     return string_buffer;
@@ -989,18 +994,30 @@ int ScriptHandler::readScript(DirPaths *path, const char* prefer_name)
     while (script_buffer[0] == ';') {
         if (!strncmp(buf, "mode", 4)) {
             buf += 4;
-            if (!strncmp(buf, "960", 3))
-                screen_size = SCREEN_SIZE_960x600;
-            else if (!strncmp(buf, "800", 3))
-                screen_size = SCREEN_SIZE_800x600;
-            else if (!strncmp(buf, "400", 3))
-                screen_size = SCREEN_SIZE_400x300;
-            else if (!strncmp(buf, "320", 3))
-                screen_size = SCREEN_SIZE_320x240;
-            else
-                screen_size = SCREEN_SIZE_640x480;
 
-            buf += 3;
+            if (!strncmp(buf, "960", 3)) {
+                screen_size = SCREEN_SIZE_960x600;
+		buf += 3;
+	    } else if (!strncmp(buf, "800", 3)) {
+                screen_size = SCREEN_SIZE_800x600;
+                buf += 3;
+            } else if (!strncmp(buf, "400", 3)) {
+                screen_size = SCREEN_SIZE_400x300;
+                buf += 3;
+            } else if (!strncmp(buf, "320", 3)) {
+                screen_size = SCREEN_SIZE_320x240;
+                buf += 3;
+            } else if (!strncmp(buf, "w720", 4)) {
+                screen_size = SCREEN_SIZE_w720;
+                buf += 4;
+            } else if (!strncmp(buf, "w1080", 5)) {
+                screen_size = SCREEN_SIZE_w1080;
+                buf += 5;
+            } else {
+                screen_size = SCREEN_SIZE_640x480;
+                buf += 3;
+            }
+
         }
         else if (!strncmp(buf, "value", 5)) {
             buf += 5;

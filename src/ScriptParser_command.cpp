@@ -554,9 +554,32 @@ int ScriptParser::midCommand(const pstring& cmd)
 {
     Expression e       = script_h.readStrExpr();
     pstring src        = script_h.readStrValue();
+    const char *src_char = (const char*) src;
     unsigned int start = script_h.readIntValue();
     unsigned int len   = script_h.readIntValue();
-    e.mutate(src.midstr(start, len));
+
+    pstring result = "";
+    int bytes, total_bytes = 0;
+    char ch;
+    wchar unicode;
+    for (int x = 0; x < start + len; x++) {
+        unicode = file_encoding->DecodeWithLigatures(src_char + total_bytes,
+            sentence_font, bytes);
+        if (x >= start) {
+            for (int y = 0; y < bytes; y++) {
+                ch = *(src_char + total_bytes + y);
+                if (ch == 0x0a || ch == '\0') {
+                    break;
+                }
+                result += ch;
+            }
+            if (ch == 0x0a || ch == '\0') {
+                break;
+            }
+        }
+        total_bytes += bytes;
+    }
+    e.mutate(result);
     return RET_CONTINUE;
 }
 
@@ -842,6 +865,19 @@ int ScriptParser::ifCommand(const pstring& cmd)
 int ScriptParser::humanzCommand(const pstring& cmd)
 {
     z_order = script_h.readIntValue();
+
+    return RET_CONTINUE;
+}
+
+
+int ScriptParser::humanposCommand(const pstring& cmd)
+{
+    int res_multiplier = 1;
+    #ifdef USE_2X_MODE
+    res_multiplier = 2;
+    #endif
+    for (int i=0; i<3; i++)
+        humanpos[i] = script_h.readIntValue() * res_multiplier;
 
     return RET_CONTINUE;
 }

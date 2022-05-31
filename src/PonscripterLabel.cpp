@@ -182,6 +182,7 @@ sfunc_lut_t::sfunc_lut_t() {
     dict["getinsert"]        = &PonscripterLabel::getinsertCommand;
     dict["getlog"]           = &PonscripterLabel::getlogCommand;
     dict["getmousepos"]      = &PonscripterLabel::getmouseposCommand;
+    dict["getmouseover"]     = &PonscripterLabel::getmouseoverCommand;
     dict["getmp3vol"]        = &PonscripterLabel::getmp3volCommand;
     dict["getpage"]          = &PonscripterLabel::getpageCommand;
     dict["getpageup"]        = &PonscripterLabel::getpageupCommand;
@@ -259,6 +260,7 @@ sfunc_lut_t::sfunc_lut_t() {
     dict["mp3save"]          = &PonscripterLabel::mp3Command;
     dict["mp3stop"]          = &PonscripterLabel::playstopCommand;
     dict["mp3vol"]           = &PonscripterLabel::mp3volCommand;
+    dict["movie"]            = &PonscripterLabel::movieCommand;
     dict["mpegplay"]         = &PonscripterLabel::mpegplayCommand;
     dict["msp"]              = &PonscripterLabel::mspCommand;
     dict["msp2"]             = &PonscripterLabel::mspCommand;
@@ -306,6 +308,7 @@ sfunc_lut_t::sfunc_lut_t() {
     dict["selgosub"]         = &PonscripterLabel::selectCommand;
     dict["selnum"]           = &PonscripterLabel::selectCommand;
     dict["setcursor"]        = &PonscripterLabel::setcursorCommand;
+    dict["setdefaultspeed"]  = &PonscripterLabel::setdefaultspeedCommand;
     dict["setwindow"]        = &PonscripterLabel::setwindowCommand;
     dict["setwindow2"]       = &PonscripterLabel::setwindow2Command;
     dict["setwindow3"]       = &PonscripterLabel::setwindow3Command;
@@ -336,6 +339,7 @@ sfunc_lut_t::sfunc_lut_t() {
     dict["texton"]           = &PonscripterLabel::textonCommand;
     dict["textshow"]         = &PonscripterLabel::textshowCommand;
     dict["textspeed"]        = &PonscripterLabel::textspeedCommand;
+    dict["textspeeddefault"] = &PonscripterLabel::textspeeddefaultCommand;
     dict["transbtn"]         = &PonscripterLabel::transbtnCommand;
     dict["trap"]             = &PonscripterLabel::trapCommand;
     dict["voicevol"]         = &PonscripterLabel::voicevolCommand;
@@ -1146,12 +1150,14 @@ int PonscripterLabel::init(const char* preferred_script)
         if (isBundled()) {
             pstring path = bundleResPath();
             if (path) {
+                archive_path.add(path + "/patch");
                 archive_path.add(path);
             }
 
             // Now add the application path.
             path = bundleAppPath();
             if (path) {
+                archive_path.add(path + "/patch");
                 archive_path.add(path);
                 // Add the next directory up as a fallback.
                 path += "/..";
@@ -1159,16 +1165,19 @@ int PonscripterLabel::init(const char* preferred_script)
             } else {
                 //if we couldn't find the application path, we still need
                 //something - use current dir and parent
+                archive_path.add("./patch");
                 archive_path.add(".");
                 archive_path.add("..");
             }
         }
         else {
             // Not in a bundle: just use current dir and parent as normal.
+            archive_path.add("./patch");
             archive_path.add(".");
             archive_path.add("..");
         }
 #else
+        archive_path.add("./patch");
         archive_path.add(".");
         archive_path.add("..");
 #endif
@@ -1744,6 +1753,46 @@ bool PonscripterLabel::check_orphan_control()
         || p == '!' || p == 0xff01 || p == '?' || p == 0xff1f;
 }
 
+bool PonscripterLabel::isStartKinsoku(wchar char_val) {
+    return (char_val == 0x3001 || char_val == 0x3002 || char_val == 0x30FB ||
+        char_val == 0x203C || char_val == 0x2047 || char_val == 0x2048 ||
+        char_val == 0x2049 || char_val == 0xFF1F || char_val == 0xFF01 ||
+        char_val == 0x2010 || char_val == 0x30A0 || char_val == 0x2013 ||
+        char_val == 0x301C || char_val == 0xFF5E || char_val == 0x309D ||
+        char_val == 0x309E || char_val == 0x30FC || char_val == 0x30A1 ||
+        char_val == 0x30A3 || char_val == 0x30A5 || char_val == 0x30A7 ||
+        char_val == 0x30A9 || char_val == 0x30C3 || char_val == 0x30E3 ||
+        char_val == 0x30E5 || char_val == 0x30E7 || char_val == 0x30EE ||
+        char_val == 0x30F5 || char_val == 0x30F6 || char_val == 0x3041 ||
+        char_val == 0x3043 || char_val == 0x3045 || char_val == 0x3047 ||
+        char_val == 0x3049 || char_val == 0x3063 || char_val == 0x3083 ||
+        char_val == 0x3085 || char_val == 0x3087 || char_val == 0x308E ||
+        (char_val >= 0x31F0 && char_val <= 0x31FF) ||
+        char_val == 0x3095 || char_val == 0x3096 ||
+        char_val == 0x3005 || char_val == 0x303B || char_val == 0xFF5D ||
+        char_val == 0x3015 || char_val == 0x3009 || char_val == 0x300B ||
+        char_val == 0x300D || char_val == 0x300F || char_val == 0x3011 ||
+        char_val == 0x3019 || char_val == 0x3017 || char_val == 0x301F ||
+        char_val == 0xFF60 || char_val == 0xBB ||
+        char_val == 0x2019 || char_val == 0x201D || char_val == 0x2C ||
+        char_val == 0x29 || char_val == 0x5D);
+}
+
+bool PonscripterLabel::isMiddleKinsoku(wchar char_val) {
+    return (char_val == 0x2014 || char_val == 0x2026 || char_val == 0x2025 ||
+        char_val == 0x3033 || char_val == 0x3034 || char_val == 0x3035 || 
+        (char_val >= 0xFF10 && char_val <= 0xFF19));
+}
+
+// TODO finish end kinsoku
+bool PonscripterLabel::isEndKinsoku(wchar char_val) {
+    return (char_val == 0x300C || char_val == 0x300E || char_val == 0xFF5B ||
+        char_val == 0x3014 || char_val == 0x3008 || char_val == 0x300A ||
+        char_val == 0x3010 || char_val == 0x3018 || char_val == 0x3016 ||
+        char_val == 0x301D || char_val == 0x2018 || char_val == 0x201C ||
+        char_val == 0xFF5F || char_val == 0xAB);
+}
+
 int PonscripterLabel::parseLine()
 {
     int ret = 0;
@@ -1796,6 +1845,12 @@ int PonscripterLabel::parseLine()
     }
 //--------END INDENT ROUTINE----------------------------------------------------
 
+    // If we're about to enter pretextgosub, don't do line breaking yet goddammit
+    bool isPreTextGoSub = pretextgosub_label
+        && (line_enter_status == 0
+            || (line_enter_status == 1
+                && (script_h.readStrBuf(string_buffer_offset) == '['
+                    || (zenkakko_flag && file_encoding->DecodeChar(script_h.getStrBuf(string_buffer_offset)) == 0x3010 /* left lenticular bracket */))));
     ret = textCommand();
 
 //--------LINE BREAKING ROUTINE-------------------------------------------------
@@ -1806,7 +1861,7 @@ int PonscripterLabel::parseLine()
         file_encoding->DecodeWithLigatures(script_h.getStrBuf(string_buffer_offset),
                                       f, lf);
 
-    if (is_break_char(first_ch) && !new_line_skip_flag) {
+    if (!isPreTextGoSub && is_break_char(first_ch) && !new_line_skip_flag) {
         int l;
         const char* it = script_h.getStrBuf(string_buffer_offset) + lf;
         wchar next_ch = file_encoding->DecodeWithLigatures(it, f, l);
@@ -2307,6 +2362,8 @@ void PonscripterLabel::disableGetButtonFlag()
     getenter_flag    = false;
     getcursor_flag   = false;
     spclclk_flag     = false;
+    getmouseover_flag = false;
+    getmouseover_min = getmouseover_max = 0;
 }
 
 

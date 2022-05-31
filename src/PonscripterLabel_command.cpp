@@ -197,6 +197,12 @@ int PonscripterLabel::transbtnCommand(const pstring& cmd)
     return RET_CONTINUE;
 }
 
+int PonscripterLabel::textspeeddefaultCommand(const pstring& cmd)
+{
+    sentence_font.wait_time = -1;
+    return RET_CONTINUE;
+}
+
 int PonscripterLabel::textspeedCommand(const pstring& cmd)
 {
     sentence_font.wait_time = script_h.readIntValue();
@@ -891,6 +897,23 @@ int PonscripterLabel::setcursorCommand(const pstring& cmd)
 }
 
 
+int PonscripterLabel::setdefaultspeedCommand(const pstring& cmd)
+{
+    int new_text_speed_no = script_h.readIntValue();
+    // Subtract 1 so that the command matches the button pressed to set speed
+    new_text_speed_no -= 1;
+
+    if (new_text_speed_no < 0 || new_text_speed_no > 2) {
+        new_text_speed_no = 1;
+        printf("Invalid setdefaultspeed given\n");
+    }
+
+    text_speed_no = new_text_speed_no;
+
+    return RET_CONTINUE;
+}
+
+
 int PonscripterLabel::selectCommand(const pstring& cmd)
 {
     int ret = enterTextDisplayMode();
@@ -1537,8 +1560,37 @@ int PonscripterLabel::mpegplayCommand(const pstring& cmd)
         subtitles = parseSubtitles(script_h.readStrValue());
     }
     stopBGM(false);
-    if (playMPEG(name, cancel, subtitles))
+    if (playMPEG(name, cancel, false, false, false, subtitles))
         endCommand("end");
+    return RET_CONTINUE;
+}
+
+
+int PonscripterLabel::movieCommand(const pstring& cmd)
+{
+    pstring name = script_h.readStrValue();
+    bool cancel = false, loop = false, mixsound = false, nosound = false;
+    SubtitleDefs subtitles;
+
+    while (script_h.hasMoreArgs()) {
+        Expression e = script_h.readStrExpr();
+        if (e.is_bareword("click")) {
+            cancel = true;
+        } else if (e.is_bareword("loop")) {
+            loop = true;
+        } else if (e.is_bareword("mixsound")) {
+            mixsound = true;
+        } else if (e.is_bareword("nosound")) {
+            nosound = true;
+        }
+    }
+
+    if (!nosound) {
+        stopBGM(false);
+    }
+    if (playMPEG(name, cancel, loop, mixsound, nosound, subtitles))
+        endCommand("end");
+
     return RET_CONTINUE;
 }
 
@@ -2008,12 +2060,14 @@ int PonscripterLabel::ldCommand(const pstring& cmd)
     }
     else {
         if (no >= 0) {
+            //(script_width/4) * (i+1)
             dirty_rect.add(tachi_info[no].pos);
             tachi_info[no].setImageName(buf);
             parseTaggedString(&tachi_info[no]);
             setupAnimationInfo(&tachi_info[no]);
             if (tachi_info[no].image_surface) {
-                tachi_info[no].pos.x = screen_width * (no + 1) / 4 -
+                //tachi_info[no].pos.x = screen_width * (no + 1) / 4 -
+                tachi_info[no].pos.x = humanpos[no] -
                                        tachi_info[no].pos.w / 2;
                 tachi_info[no].pos.y = underline_value -
                                        tachi_info[no].image_surface->h + 1;
@@ -2248,10 +2302,19 @@ int PonscripterLabel::getspsizeCommand(const pstring& cmd)
 {
     int no = script_h.readIntValue();
 
-    script_h.readIntExpr().mutate(sprite_info[no].pos.w *
-				  screen_ratio2 / screen_ratio1);
-    script_h.readIntExpr().mutate(sprite_info[no].pos.h *
-				  screen_ratio2 / screen_ratio1);
+    int res_multiplier = 1;
+    #ifdef USE_2X_MODE
+    res_multiplier = 2;
+    #endif
+
+    script_h.readIntExpr().mutate(
+        (sprite_info[no].pos.w * screen_ratio2 / screen_ratio1) /
+        res_multiplier
+    );
+    script_h.readIntExpr().mutate(
+        (sprite_info[no].pos.h * screen_ratio2 / screen_ratio1) /
+        res_multiplier
+    );
     if (script_h.hasMoreArgs())
         script_h.readIntExpr().mutate(sprite_info[no].num_of_cells);
 
@@ -2390,6 +2453,16 @@ int PonscripterLabel::getmouseposCommand(const pstring& cmd)
 				  screen_ratio2 / screen_ratio1);
     script_h.readIntExpr().mutate(current_button_state.y *
 				  screen_ratio2 / screen_ratio1);
+    return RET_CONTINUE;
+}
+
+
+int PonscripterLabel::getmouseoverCommand(const pstring& cmd)
+{
+    getmouseover_flag = true;
+    getmouseover_min = script_h.readIntValue();
+    getmouseover_max = script_h.readIntValue();
+
     return RET_CONTINUE;
 }
 
@@ -3322,13 +3395,13 @@ int PonscripterLabel::brCommand(const pstring& cmd)
 
     // textbufferchange
     for (i = 0; i < 2; i++) {
-        if (current_read_language == i || current_read_language == -1) {
+        //if (current_read_language == i || current_read_language == -1) {
             tag.format("=%d", ns);
             current_text_buffer[i]->addBuffer(file_encoding->TranslateTag(tag, ignored));
             current_text_buffer[i]->addBuffer(0x0a);
             tag.format("=%d", cs);
             current_text_buffer[i]->addBuffer(file_encoding->TranslateTag(tag, ignored));
-        }
+        //}
     }
 
     return RET_CONTINUE;
@@ -3624,7 +3697,8 @@ int PonscripterLabel::bgCommand(const pstring& cmd)
 {
     //Mion: prefer removing textwindow for bg change effects even during skip;
     //but don't remove text window if erasetextwindow == 0
-    int ret = leaveTextDisplayMode((erase_text_window_mode != 0));
+    int ret = leaveTextDisplayMode();
+    //int ret = leaveTextDisplayMode((erase_text_window_mode != 0));
     if (ret != RET_NOMATCH) return ret;
 
     Expression e = script_h.readStrExpr();

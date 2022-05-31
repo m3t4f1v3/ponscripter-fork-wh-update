@@ -114,7 +114,41 @@ PonscripterLabel::drawChar(const char* text, Fontinfo* info, bool flush_flag,
         float adv = info->GlyphAdvance(unicode, next);
         if (isNonspacing(unicode)) info->advanceBy(-adv);
 
-        if (info->isNoRoomFor(adv)) info->newLine();
+        if (current_read_language == 1) {
+            // Kinsoku Shori for Japanese text only
+            if (isEndKinsoku(unicode)) {
+                wchar middle_unicode = unicode;
+                float middle_adv = 0;
+                int middle_bytes = 0, temp_bytes = 0;
+                while (isEndKinsoku(middle_unicode)) {
+                    middle_bytes += temp_bytes;
+                    middle_adv += info->GlyphAdvance(middle_unicode);
+                    middle_unicode = file_encoding->DecodeWithLigatures(text + middle_bytes, *info, temp_bytes);
+                }
+                if (info->isNoRoomFor(middle_adv)) {
+                    info->newLine();
+                }
+            } else if (isStartKinsoku(next)) {
+                wchar middle_unicode = next;
+                float middle_adv = 0;
+                int middle_bytes = bytes, temp_bytes = 0;
+                while (isStartKinsoku(middle_unicode)) {
+                    middle_bytes += temp_bytes;
+                    middle_adv += info->GlyphAdvance(middle_unicode);
+                    middle_unicode = file_encoding->DecodeWithLigatures(text + middle_bytes, *info, temp_bytes);
+                }
+                if (info->isNoRoomFor(middle_adv)) {
+                    info->newLine();
+                }
+            } else if (info->isNoRoomFor(adv)) {
+                info->newLine();
+            }
+        } else {
+            // Defaul language endline processing
+            if (info->isNoRoomFor(adv)) {
+                info->newLine();
+            }
+        }
 
         float x = info->GetX() * screen_ratio1 / screen_ratio2;
         if (info->getRTL())
@@ -249,7 +283,7 @@ void PonscripterLabel::restoreTextBuffer()
 int PonscripterLabel::enterTextDisplayMode(bool text_flag)
 {
     if (line_enter_status <= 1 && saveon_flag && internal_saveon_flag &&
-    text_flag && current_read_language == 1) {
+    text_flag && (current_read_language == 1 || current_read_language == -1)) {
         saveSaveFile(-1);
         internal_saveon_flag = false;
     }
@@ -403,7 +437,9 @@ int PonscripterLabel::clickNewPage(bool display_char)
     if (display_char) {
         drawChar(c, &sentence_font, true, true, accumulation_surface,
                  &text_info);
-        ++num_chars_in_sentence;
+        if (current_read_language == -1 || current_read_language == current_language) {
+            ++num_chars_in_sentence;
+        }
     }
     
     if (skip_flag || draw_one_page_flag || skip_to_wait ||
@@ -690,8 +726,10 @@ int PonscripterLabel::processText()
 
         drawChar(script_h.getStrBuf(string_buffer_offset), &sentence_font,
                  flush_flag, true, accumulation_surface, &text_info);
-        ++num_chars_in_sentence;
 
+        if (current_read_language == -1 || current_read_language == current_language) {
+            ++num_chars_in_sentence;
+        }
         if (flush_flag) {
             event_mode = WAIT_SLEEP_MODE;
             int wait_time = 0;

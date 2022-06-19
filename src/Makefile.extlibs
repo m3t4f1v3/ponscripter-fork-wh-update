@@ -47,7 +47,7 @@ dclean_sdl: clean_sdl
 $(SDLSRC)/Makefile: $(if $(INTERNAL_LIBPNG),$(EL)/libpng$(LIBSUFFIX))
 	@echo Configuring internal SDL...
 	@cd $(SDLSRC) && \
-	./configure --prefix="$(LPREFIX)" \
+	emconfigure ./configure --host=wasm32 --prefix="$(LPREFIX)" \
 	    $(addprefix --disable-,shared joystick nas $(addprefix video-,fbcon directfb svga vgl wscons opengl)) \
 	    $(SDLOTHERCONFIG) \
 	    $(REDIR)
@@ -94,7 +94,7 @@ $(SDLISRC)/Makefile: $(if $(INTERNAL_SDL),$(EB)/sdl2-config) \
                      $(if $(INTERNAL_LIBJPEG),$(EL)/libjpeg$(LIBSUFFIX))
 	@echo Configuring internal SDL_image...
 	@cd $(SDLISRC) && ./autogen.sh && \
-	./configure --prefix="$(LPREFIX)" $(OTHERCONFIG) \
+	emconfigure ./configure --host=wasm32 --prefix="$(LPREFIX)" $(OTHERCONFIG) \
 	    $(addprefix --disable-,shared lbm pcx pnm tga xcf xv tif webp \
 	    	                   $(if $(INTERNAL_LIBPNG),png-shared) \
                                    $(if $(INTERNAL_LIBJPEG),jpg-shared)) \
@@ -118,7 +118,7 @@ internal_jpeg = $(EL)/libjpeg$(LIBSUFFIX)
 $(PNGSRC)/Makefile: $(EL)/libz$(LIBSUFFIX)
 	@echo Configuring internal libpng...
 	@cd $(PNGSRC) && \
-	./configure --prefix="$(LPREFIX)" --disable-shared --disable-dependency-tracking $(OTHERCONFIG) $(REDIR)
+	emconfigure ./configure --host=wasm32 --prefix="$(LPREFIX)" --disable-shared --disable-dependency-tracking $(OTHERCONFIG) $(REDIR)
 
 $(EL)/libpng$(LIBSUFFIX): $(PNGSRC)/Makefile
 	@echo Building internal libpng...
@@ -132,7 +132,7 @@ $(EL)/libz$(LIBSUFFIX):
 $(JPEGSRC)/Makefile:
 	@echo Configuring internal libjpeg...
 	@cd $(JPEGSRC) && \
-	./configure --prefix="$(LPREFIX)" --disable-shared --enable-static $(OTHERCONFIG) $(REDIR)
+	emconfigure ./configure --host=wasm32 --prefix="$(LPREFIX)" --disable-shared --enable-static $(OTHERCONFIG) $(REDIR)
 
 $(EL)/libjpeg$(LIBSUFFIX): $(JPEGSRC)/Makefile 
 	@echo Building internal libjpeg...
@@ -161,7 +161,7 @@ $(SDLMSRC)/Makefile: $(if $(INTERNAL_SDL),$(EB)/sdl2-config) \
                      $(if $(INTERNAL_OGGLIBS),$(OGGLIBS))
 	@echo Configuring internal SDL_mixer...
 	@cd $(SDLMSRC) && \
-	./configure --prefix="$(LPREFIX)" $(SDL_MIXER_FLAGS) $(OTHERCONFIG) \
+	emconfigure ./configure --host=wasm32 --prefix="$(LPREFIX)" $(SDL_MIXER_FLAGS) $(OTHERCONFIG) \
 	    $(addprefix --disable-,shared $(addprefix music-,cmd timidity-midi)) \
 	    $(REDIR)
 
@@ -177,7 +177,7 @@ internal_ogglibs = $(OGGLIBS)
 $(OGGSRC)/Makefile:
 	@echo Configuring internal libogg...
 	@cd $(OGGSRC) && \
-	./configure --prefix="$(LPREFIX)" --disable-shared --disable-dependency-tracking $(OTHERCONFIG) $(REDIR)
+	emconfigure ./configure --host=wasm32 --prefix="$(LPREFIX)" --disable-shared --disable-dependency-tracking $(OTHERCONFIG) $(REDIR)
 
 $(EL)/libogg$(LIBSUFFIX): $(OGGSRC)/Makefile
 	@echo Building internal libogg...
@@ -187,7 +187,7 @@ $(EL)/libogg$(LIBSUFFIX): $(OGGSRC)/Makefile
 $(VORBSRC)/Makefile: $(if $(INTERNAL_OGGLIBS),$(EL)/libogg$(LIBSUFFIX))
 	@echo Configuring internal libvorbis...
 	@cd $(VORBSRC) && \
-	./configure --prefix="$(LPREFIX)" $(addprefix --disable-,shared dependency-tracking docs) $(OTHERCONFIG) $(REDIR)
+	emconfigure ./configure --host=wasm32 --prefix="$(LPREFIX)" $(addprefix --disable-,shared dependency-tracking docs) $(OTHERCONFIG) $(REDIR)
 
 $(EL)/libvorbisfile$(LIBSUFFIX): $(EL)/libvorbis$(LIBSUFFIX)
 $(EL)/libvorbis$(LIBSUFFIX): $(EL)/libogg$(LIBSUFFIX) $(VORBSRC)/Makefile
@@ -208,7 +208,7 @@ dclean_smpeg: clean_smpeg
 $(SMPGSRC)/Makefile: $(if $(INTERNAL_SDL),$(EB)/sdl2-config)
 	@echo Configuring internal smpeg...
 	@cd $(SMPGSRC) && ./autogen.sh && \
-	./configure --prefix="$(LPREFIX)" $(OTHERCONFIG) \
+	emconfigure ./configure --host=wasm32 --prefix="$(LPREFIX)" $(OTHERCONFIG) \
 	    $(addprefix --disable-,shared gtk-player opengl-player debug) \
 	    $(REDIR)
 
@@ -232,7 +232,7 @@ dclean_freetype:
 $(FTCONFIGURE): $(if $(INTERNAL_LIBPNG),$(EL)/libz$(LIBSUFFIX))
 	@echo Configuring internal Freetype...
 	@cd $(FTSRC) && \
-	./configure --prefix="$(LPREFIX)" --disable-shared $(OTHERCONFIG) $(REDIR)
+	emconfigure ./configure --host=wasm32 --prefix="$(LPREFIX)" --disable-shared $(OTHERCONFIG) $(REDIR)
 
 $(EB)/freetype-config: $(FTCONFIGURE)
 	@echo Building internal Freetype...
@@ -268,7 +268,7 @@ clean_steamsdk:
 
 
 $(STEAMSDK)/Makefile:
-	@cd $(STEAMSDK) && ./configure
+	@cd $(STEAMSDK) && emconfigure ./configure
 
 
 steam_api=$(EI)/steam/steam_api.h

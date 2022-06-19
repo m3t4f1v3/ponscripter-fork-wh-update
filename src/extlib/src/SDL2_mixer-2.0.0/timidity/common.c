@@ -155,7 +155,7 @@ FILE *open_file(const char *name, int decompress, int noise_mode)
 	    return 0;
 	  }
 #endif
-	plp=plp->next;
+	plp=(PathList *)plp->next;
       }
   
   /* Nothing could be opened. */
@@ -218,8 +218,8 @@ void *safe_malloc(size_t count)
 /* This adds a directory to the path list */
 void add_to_pathlist(const char *s)
 {
-  PathList *plp=safe_malloc(sizeof(PathList));
-  strcpy((plp->path=safe_malloc(strlen(s)+1)),s);
+  PathList *plp=(PathList *)safe_malloc(sizeof(PathList));
+  strcpy((plp->path=(char *)safe_malloc(strlen(s)+1)),s);
   plp->next=pathlist;
   pathlist=plp;
 }
@@ -235,7 +235,7 @@ void free_pathlist(void)
       free(plp->path);
       plp->path=NULL;
     }
-    next_plp = plp->next;
+    next_plp = (PathList *)plp->next;
     free(plp);
     plp = next_plp;
   }

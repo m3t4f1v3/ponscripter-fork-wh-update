@@ -243,11 +243,11 @@ static int sysex(uint32 len, uint8 *syschan, uint8 *sysa, uint8 *sysb, SDL_RWops
   return 0;
 }
 
-/* Print a string from the file, followed by a newline. Any non-ASCII
+/* Print a string from the file, followed by a whateverline. Any non-ASCII
    or unprintable characters will be converted to periods. */
 static int dumpstring(int32 len, const char *label)
 {
-  signed char *s=safe_malloc(len+1);
+  signed char *s=(signed char *)safe_malloc(len+1);
   if (len != (int32)SDL_RWread(rw, s, 1, len))
     {
       free(s);
@@ -265,10 +265,10 @@ static int dumpstring(int32 len, const char *label)
 }
 
 #define MIDIEVENT(at,t,ch,pa,pb) \
-  new=safe_malloc(sizeof(MidiEventList)); \
-  new->event.time=at; new->event.type=t; new->event.channel=ch; \
-  new->event.a=pa; new->event.b=pb; new->next=0;\
-  return new;
+  whatever=(MidiEventList *)safe_malloc(sizeof(MidiEventList)); \
+  whatever->event.time=at; whatever->event.type=t; whatever->event.channel=ch; \
+  whatever->event.a=pa; whatever->event.b=pb; whatever->next=0;\
+  return whatever;
 
 #define MAGIC_EOT ((MidiEventList *)(-1))
 
@@ -280,7 +280,7 @@ static MidiEventList *read_midi_event(void)
   static uint8 nrpn=0, rpn_msb[16], rpn_lsb[16]; /* one per channel */
   uint8 me, type, a,b,c;
   int32 len;
-  MidiEventList *new;
+  MidiEventList *whatever;
 
   for (;;)
     {
@@ -519,7 +519,7 @@ static MidiEventList *read_midi_event(void)
 	}
     }
   
-  return new;
+  return whatever;
 }
 
 #undef MIDIEVENT
@@ -529,7 +529,7 @@ static MidiEventList *read_midi_event(void)
 static int read_track(int append)
 {
   MidiEventList *meep;
-  MidiEventList *next, *new;
+  MidiEventList *next, *whatever;
   int32 len;
   Sint64 next_pos, pos;
   char tmp[4];
@@ -538,7 +538,7 @@ static int read_track(int append)
   if (append && meep)
     {
       /* find the last event in the list */
-      for (; meep->next; meep=meep->next)
+      for (; meep->next; meep=(MidiEventList *)meep->next)
 	;
       at=meep->event.time;
     }
@@ -563,10 +563,10 @@ static int read_track(int append)
 
   for (;;)
     {
-      if (!(new=read_midi_event())) /* Some kind of error  */
+      if (!(whatever=read_midi_event())) /* Some kind of error  */
 	return -2;
 
-      if (new==MAGIC_EOT) /* End-of-track Hack. */
+      if (whatever==MAGIC_EOT) /* End-of-track Hack. */
 	{
           pos = SDL_RWtell(rw);
           if (pos < next_pos)
@@ -574,18 +574,18 @@ static int read_track(int append)
 	  return 0;
 	}
 
-      next=meep->next;
-      while (next && (next->event.time < new->event.time))
+      next=(MidiEventList *)meep->next;
+      while (next && (next->event.time < whatever->event.time))
 	{
 	  meep=next;
-	  next=meep->next;
+	  next=(MidiEventList *)meep->next;
 	}
 	  
-      new->next=next;
-      meep->next=new;
+      whatever->next=next;
+      meep->next=whatever;
 
       event_count++; /* Count the event. (About one?) */
-      meep=new;
+      meep=whatever;
     }
 }
 
@@ -596,7 +596,7 @@ static void free_midi_list(void)
   if (!(meep=evlist)) return;
   while (meep)
     {
-      next=meep->next;
+      next=(MidiEventList *)meep->next;
       free(meep);
       meep=next;
     }
@@ -605,26 +605,26 @@ static void free_midi_list(void)
 
 
 static void xremap_percussion(int *banknumpt, int *this_notept, int this_kit) {
-        int i, newmap;
+        int i, whatevermap;
         int banknum = *banknumpt;
         int this_note = *this_notept;
-        int newbank, newnote;
+        int whateverbank, whatevernote;
 
         if (this_kit != 127 && this_kit != 126) return;
 
         for (i = 0; i < XMAPMAX; i++) {
-                newmap = xmap[i][0];
-                if (!newmap) return;
-                if (this_kit == 127 && newmap != XGDRUM) continue;
-                if (this_kit == 126 && newmap != SFXDRUM1) continue;
+                whatevermap = xmap[i][0];
+                if (!whatevermap) return;
+                if (this_kit == 127 && whatevermap != XGDRUM) continue;
+                if (this_kit == 126 && whatevermap != SFXDRUM1) continue;
                 if (xmap[i][1] != banknum) continue;
                 if (xmap[i][3] != this_note) continue;
-                newbank = xmap[i][2];
-                newnote = xmap[i][4];
-                if (newbank == banknum && newnote == this_note) return;
-                if (!drumset[newbank]) return;
-                *banknumpt = newbank;
-                *this_notept = newnote;
+                whateverbank = xmap[i][2];
+                whatevernote = xmap[i][4];
+                if (whateverbank == banknum && whatevernote == this_note) return;
+                if (!drumset[whateverbank]) return;
+                *banknumpt = whateverbank;
+                *this_notept = whatevernote;
                 return;
         }
 }
@@ -637,7 +637,7 @@ static MidiEvent *groom_list(int32 divisions,int32 *eventsp,int32 *samplesp)
 {
   MidiEvent *groomed_list, *lp;
   MidiEventList *meep;
-  int32 i, our_event_count, tempo, skip_this_event, new_value;
+  int32 i, our_event_count, tempo, skip_this_event, whatever_value;
   int32 sample_cum, samples_to_do, at, st, dt, counting_time;
 
   int current_bank[MAXCHAN], current_banktype[MAXCHAN], current_set[MAXCHAN],
@@ -658,7 +658,7 @@ static MidiEvent *groom_list(int32 divisions,int32 *eventsp,int32 *samplesp)
   compute_sample_increment(tempo, divisions);
 
   /* This may allocate a bit more than we need */
-  groomed_list=lp=safe_malloc(sizeof(MidiEvent) * (event_count+1));
+  groomed_list=lp=(MidiEvent *)safe_malloc(sizeof(MidiEvent) * (event_count+1));
   meep=evlist;
 
   our_event_count=0;
@@ -697,12 +697,12 @@ static MidiEvent *groom_list(int32 divisions,int32 *eventsp,int32 *samplesp)
 		  {
 			 current_kit[meep->event.channel]=125;
 			 current_set[meep->event.channel]=SFXDRUM2;
-		         new_value=SFXDRUM2;
+		         whatever_value=SFXDRUM2;
 		  }
 		  else if (!meep->event.a && drumset[SFXDRUM1])
 		  {
 			 current_set[meep->event.channel]=SFXDRUM1;
-		         new_value=SFXDRUM1;
+		         whatever_value=SFXDRUM1;
 		  }
 		  else
 		  {
@@ -713,30 +713,30 @@ static MidiEvent *groom_list(int32 divisions,int32 *eventsp,int32 *samplesp)
 		  }
 		}
 	      if (drumset[meep->event.a]) /* Is this a defined drumset? */
-		new_value=meep->event.a;
+		whatever_value=meep->event.a;
 	      else
 		{
 		  ctl->cmsg(CMSG_WARNING, VERB_VERBOSE,
 		       "Drum set %d is undefined", meep->event.a);
 		  if (drumset[0])
-		      new_value=meep->event.a=0;
+		      whatever_value=meep->event.a=0;
 		  else
 		    {
 			skip_this_event=1;
 			break;
 		    }
 		}
-	      if (current_set[meep->event.channel] != new_value)
-		current_set[meep->event.channel]=new_value;
+	      if (current_set[meep->event.channel] != whatever_value)
+		current_set[meep->event.channel]=whatever_value;
 	      else 
 		skip_this_event=1;
 	    }
 	  else
 	    {
-	      new_value=meep->event.a;
+	      whatever_value=meep->event.a;
 	      if ((current_program[meep->event.channel] != SPECIAL_PROGRAM)
-		  && (current_program[meep->event.channel] != new_value))
-		current_program[meep->event.channel] = new_value;
+		  && (current_program[meep->event.channel] != whatever_value))
+		current_program[meep->event.channel] = whatever_value;
 	      else
 		skip_this_event=1;
 	    }
@@ -817,9 +817,9 @@ static MidiEvent *groom_list(int32 divisions,int32 *eventsp,int32 *samplesp)
 	case ME_TONE_KIT:
 	  if (!meep->event.a || meep->event.a == 127)
 	    {
-	      new_value=meep->event.a;
-	      if (current_kit[meep->event.channel] != new_value)
-		current_kit[meep->event.channel]=new_value;
+	      whatever_value=meep->event.a;
+	      if (current_kit[meep->event.channel] != whatever_value)
+		current_kit[meep->event.channel]=whatever_value;
 	      else 
 		skip_this_event=1;
 	      break;
@@ -827,7 +827,7 @@ static MidiEvent *groom_list(int32 divisions,int32 *eventsp,int32 *samplesp)
 	  else if (meep->event.a == 126)
 	    {
 	      if (drumset[SFXDRUM1]) /* Is this a defined tone bank? */
-	        new_value=meep->event.a;
+	        whatever_value=meep->event.a;
 	      else
 		{
 	          ctl->cmsg(CMSG_WARNING, VERB_VERBOSE,
@@ -836,7 +836,7 @@ static MidiEvent *groom_list(int32 divisions,int32 *eventsp,int32 *samplesp)
 	          break;
 		}
 	      current_set[meep->event.channel]=SFXDRUM1;
-	      current_kit[meep->event.channel]=new_value;
+	      current_kit[meep->event.channel]=whatever_value;
 	      break;
 	    }
 	  else if (meep->event.a != SFX_BANKTYPE)
@@ -853,7 +853,7 @@ static MidiEvent *groom_list(int32 divisions,int32 *eventsp,int32 *samplesp)
 	      break;
 	    }
 	  if (tonebank[SFXBANK] || tonebank[120]) /* Is this a defined tone bank? */
-	    new_value=SFX_BANKTYPE;
+	    whatever_value=SFX_BANKTYPE;
 	  else 
 	    {
 	      ctl->cmsg(CMSG_WARNING, VERB_VERBOSE,
@@ -861,8 +861,8 @@ static MidiEvent *groom_list(int32 divisions,int32 *eventsp,int32 *samplesp)
 	      skip_this_event=1;
 	      break;
 	    }
-	  if (current_banktype[meep->event.channel]!=new_value)
-	    current_banktype[meep->event.channel]=new_value;
+	  if (current_banktype[meep->event.channel]!=whatever_value)
+	    current_banktype[meep->event.channel]=whatever_value;
 	  else
 	    skip_this_event=1;
 	  break;
@@ -877,19 +877,19 @@ static MidiEvent *groom_list(int32 divisions,int32 *eventsp,int32 *samplesp)
 	      channel[meep->event.channel].variationbank=meep->event.a;
 	      ctl->cmsg(CMSG_WARNING, VERB_VERBOSE,
 		   "XG variation bank %d", meep->event.a);
-	      new_value=meep->event.a=0;
+	      whatever_value=meep->event.a=0;
 	  }
 	  else if (tonebank[meep->event.a]) /* Is this a defined tone bank? */
-	    new_value=meep->event.a;
+	    whatever_value=meep->event.a;
 	  else 
 	    {
 	      ctl->cmsg(CMSG_WARNING, VERB_VERBOSE,
 		   "Tone bank %d is undefined", meep->event.a);
-	      new_value=meep->event.a=0;
+	      whatever_value=meep->event.a=0;
 	    }
 
-	  if (current_bank[meep->event.channel]!=new_value)
-	    current_bank[meep->event.channel]=new_value;
+	  if (current_bank[meep->event.channel]!=whatever_value)
+	    current_bank[meep->event.channel]=whatever_value;
 	  else
 	    skip_this_event=1;
 	  break;
@@ -925,7 +925,7 @@ static MidiEvent *groom_list(int32 divisions,int32 *eventsp,int32 *samplesp)
 	  our_event_count++;
 	}
       at=meep->event.time;
-      meep=meep->next;
+      meep=(MidiEventList *)meep->next;
     }
   /* Add an End-of-Track event */
   lp->time=st;
@@ -1033,7 +1033,7 @@ past_riff:
        "Format: %d  Tracks: %d  Divisions: %d", format, tracks, divisions);
 
   /* Put a do-nothing event first in the list for easier processing */
-  evlist=safe_malloc(sizeof(MidiEventList));
+  evlist=(MidiEventList *)safe_malloc(sizeof(MidiEventList));
   evlist->event.time=0;
   evlist->event.type=ME_NONE;
   evlist->next=0;

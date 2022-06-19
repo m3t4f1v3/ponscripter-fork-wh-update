@@ -128,7 +128,7 @@ WAVStream *WAVStream_LoadSong_RW(SDL_RWops *src, int freesrc)
         Uint32 magic;
 
         SDL_zerop(wave);
-        wave->freesrc = freesrc;
+        wave->freesrc = (SDL_bool)freesrc;
 
         magic = SDL_ReadLE32(src);
         if ( magic == RIFF || magic == WAVE ) {

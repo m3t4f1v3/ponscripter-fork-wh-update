@@ -39,6 +39,8 @@ AC_SUBST(EXEEXT)
 
 # checks for native programs to generate building tool
 
+CC=em++
+
 if test ${cross_compiling} = yes; then
   AC_CHECK_PROG(CC_BUILD, ${build}-gcc, ${build-gcc})
   test -z "${CC_BUILD}" && AC_CHECK_PROG(CC_BUILD, gcc, gcc)

@@ -1149,7 +1149,7 @@ static position_args *get_position_arg(int channel)
 
     if (channel < 0) {
         if (pos_args_global == NULL) {
-            pos_args_global = SDL_malloc(sizeof (position_args));
+            pos_args_global = (position_args *)SDL_malloc(sizeof (position_args));
             if (pos_args_global == NULL) {
                 Mix_SetError("Out of memory");
                 return(NULL);

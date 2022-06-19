@@ -517,7 +517,7 @@ Mix_Music *Mix_LoadMUS(const char *file)
     SDL_RWops *src;
     Mix_Music *music;
     Mix_MusicType type;
-    char *ext = strrchr(file, '.');
+    char *ext = (char *)strrchr(file, '.');
 
 #ifdef CMD_MUSIC
     if ( music_cmd ) {
@@ -546,7 +546,7 @@ Mix_Music *Mix_LoadMUS(const char *file)
 
     /* Use the extension as a first guess on the file type */
     type = MUS_NONE;
-    ext = strrchr(file, '.');
+    ext = (char *)strrchr(file, '.');
     /* No need to guard these with #ifdef *_MUSIC stuff,
      * since we simply call Mix_LoadMUSType_RW() later */
     if ( ext ) {

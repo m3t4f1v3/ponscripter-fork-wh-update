@@ -357,7 +357,7 @@ static void mix_channels(void *udata, Uint8 *stream, int len)
                         mixable = remaining;
                     }
 
-                    mix_input = Mix_DoEffects(i, mix_channel[i].samples, mixable);
+                    mix_input = (Uint8 *)Mix_DoEffects(i, mix_channel[i].samples, mixable);
                     SDL_MixAudio(stream+index,mix_input,mixable,volume);
                     if (mix_input != mix_channel[i].samples)
                         SDL_free(mix_input);
@@ -381,7 +381,7 @@ static void mix_channels(void *udata, Uint8 *stream, int len)
                         remaining = alen;
                     }
 
-                    mix_input = Mix_DoEffects(i, mix_channel[i].chunk->abuf, remaining);
+                    mix_input = (Uint8 *)Mix_DoEffects(i, mix_channel[i].chunk->abuf, remaining);
                     SDL_MixAudio(stream+index, mix_input, remaining, volume);
                     if (mix_input != mix_channel[i].chunk->abuf)
                         SDL_free(mix_input);
@@ -1334,7 +1334,7 @@ static int _Mix_register_effect(effect_info **e, Mix_EffectFunc_t f,
         return(0);
     }
 
-    new_e = SDL_malloc(sizeof (effect_info));
+    new_e = (effect_info *)SDL_malloc(sizeof (effect_info));
     if (new_e == NULL) {
         Mix_SetError("Out of memory");
         return(0);

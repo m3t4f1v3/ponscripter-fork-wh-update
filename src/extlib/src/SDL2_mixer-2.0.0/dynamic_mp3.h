@@ -20,7 +20,7 @@
 */
 
 #ifdef MP3_MUSIC
-#include "smpeg.h"
+#include <smpeg2/smpeg.h>
 
 typedef struct {
     int loaded;

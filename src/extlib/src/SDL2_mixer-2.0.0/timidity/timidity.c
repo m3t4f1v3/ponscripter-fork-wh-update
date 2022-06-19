@@ -119,7 +119,7 @@ static int read_config_file(const char *name)
      }
     if (!drumset[i])
       {
-        drumset[i]=safe_malloc(sizeof(ToneBank));
+        drumset[i]=(ToneBank *)safe_malloc(sizeof(ToneBank));
       memset(drumset[i], 0, sizeof(ToneBank));
      }
     bank=drumset[i];
@@ -143,7 +143,7 @@ static int read_config_file(const char *name)
       }
     if (!tonebank[i])
      {
-      tonebank[i]=safe_malloc(sizeof(ToneBank));
+      tonebank[i]=(ToneBank *)safe_malloc(sizeof(ToneBank));
         memset(tonebank[i], 0, sizeof(ToneBank));
       }
     bank=tonebank[i];
@@ -173,7 +173,7 @@ static int read_config_file(const char *name)
     }
   if (bank->tone[i].name)
     free(bank->tone[i].name);
-  strcpy((bank->tone[i].name=safe_malloc(strlen(w[1])+1)),w[1]);
+  strcpy((bank->tone[i].name=(char *)safe_malloc(strlen(w[1])+1)),w[1]);
   bank->tone[i].note=bank->tone[i].amp=bank->tone[i].pan=
     bank->tone[i].strip_loop=bank->tone[i].strip_envelope=
       bank->tone[i].strip_tail=-1;
@@ -335,8 +335,8 @@ int Timidity_Init(int rate, int format, int channels, int samples)
   AUDIO_BUFFER_SIZE = samples;
 
   /* Allocate memory for mixing (WARNING:  Memory leak!) */
-  resample_buffer = safe_malloc(AUDIO_BUFFER_SIZE*sizeof(resample_t)+100);
-  common_buffer = safe_malloc(AUDIO_BUFFER_SIZE*num_ochannels*sizeof(int32));
+  resample_buffer = (resample_t *)safe_malloc(AUDIO_BUFFER_SIZE*sizeof(resample_t)+100);
+  common_buffer = (int32 *)safe_malloc(AUDIO_BUFFER_SIZE*num_ochannels*sizeof(int32));
 
   init_tables();
 

@@ -25,7 +25,7 @@ $RECYCLE.BIN/
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
 
 # Thumbnails
 ._*
@@ -68,6 +68,7 @@ Temporary Items
 *.so
 *.dll
 *.dylib
+*.d
 
 # Qt-es
 
@@ -132,3 +133,6 @@ Makefile*
 /pons.creator.user
 /pons.files
 /pons.includes
+
+# vscode directory
+.vscode/

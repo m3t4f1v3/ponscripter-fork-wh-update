@@ -274,10 +274,7 @@ void PonscripterLabel::parseTaggedString(AnimationInfo* anim, bool is_mask)
 
     anim->removeTag();
 
-    int res_multiplier = 1;
-    #ifdef USE_2X_MODE
-    res_multiplier = 2;
-    #endif
+    int multiplier = multiplier_style <= ScriptHandler::UMINEKO ? 1 : res_multiplier;
 
     int i;
     const char* buffer = anim->image_name;
@@ -326,9 +323,9 @@ void PonscripterLabel::parseTaggedString(AnimationInfo* anim, bool is_mask)
                 script_h.getNext();
 
                 script_h.pushCurrent((char*) buffer); // FIXME: unsafe
-                anim->font_size_x = script_h.readIntValue() * res_multiplier;
+                anim->font_size_x = script_h.readIntValue() * multiplier;
                 anim->font_size_y = script_h.hasMoreArgs()
-		                  ? script_h.readIntValue() * res_multiplier
+		                  ? script_h.readIntValue() * multiplier
 		                  : anim->font_size_x;
                 anim->font_pitch  = script_h.hasMoreArgs()
 		                  ? script_h.readIntValue()

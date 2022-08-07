@@ -67,11 +67,16 @@ ScriptHandler::ScriptHandler()
 
     arrays.clear();
 
-    screen_size = SCREEN_SIZE_640x480;
+    screen_width = 640;
+    screen_height = 480;
+    res_multiplier = 2; // Default to 2x mode for Umineko
+    multiplier_style = UMINEKO;
     global_variable_border = 200;
 
     // Prefer Ponscripter files over NScripter files, and prefer
     // unencoded files over encoded files.
+    script_filenames.push_back(ScriptFilename("0.u",          0, UTF8));
+    script_filenames.push_back(ScriptFilename("00.u",         0, UTF8));
     script_filenames.push_back(ScriptFilename("0.utf",        0, UTF8));
     script_filenames.push_back(ScriptFilename("00.utf",       0, UTF8));
     script_filenames.push_back(ScriptFilename("0.txt",        0, CP932));
@@ -838,6 +843,7 @@ int ScriptHandler::readScript(DirPaths *path, const char* prefer_name)
     encoding_t enc = UTF8;
 
     pstring fname = "";
+    pstring ext = "";
     while ((fp == NULL) && (n<archive_path->get_num_paths())) {
         script_path = archive_path->get_path(n++);
 
@@ -884,6 +890,7 @@ int ScriptHandler::readScript(DirPaths *path, const char* prefer_name)
             for (ScriptFilename::iterator ft = script_filenames.begin();
                  ft != script_filenames.end(); ++ft) {
                 if ((fp = fileopen(script_path, ft->filename, "rb")) != NULL) {
+                    ext = pstr_split_last(ft->filename, '.').second;
                     encrypt_mode = ft->encryption;
                     enc = ft->_encoding;
                     break;
@@ -917,10 +924,10 @@ int ScriptHandler::readScript(DirPaths *path, const char* prefer_name)
     if (encrypt_mode == 0 && !fname) {
         fclose(fp);
         for (int i = 1; i < 100; i++) {
-	    pstring filename;
-	    filename.format("%d.%s", i, enc == UTF8 ? "utf" : "txt");
+            pstring filename;
+            filename.format("%d.%s", i, (const char*)ext);
             if ((fp = fileopen(script_path, filename, "rb")) == NULL) {
-		filename.format("%02d.%s", i, enc == UTF8 ? "utf" : "txt");
+                filename.format("%02d.%s", i, (const char*)ext);
                 fp = fileopen(script_path, filename, "rb");
             }
 
@@ -946,10 +953,10 @@ int ScriptHandler::readScript(DirPaths *path, const char* prefer_name)
     }
     else {
         for (int i = 0; i < 100; i++) {
-	    pstring filename;
-	    filename.format("%d.%s", i, enc == UTF8 ? "utf" : "txt");
+            pstring filename;
+            filename.format("%d.%s", i, (const char*)ext);
             if ((fp = fileopen(script_path, filename, "rb")) == NULL) {
-		filename.format("%02d.%s", i, enc == UTF8 ? "utf" : "txt");
+                filename.format("%02d.%s", i, (const char*)ext);
                 fp = fileopen(script_path, filename, "rb");
             }
 
@@ -994,30 +1001,42 @@ int ScriptHandler::readScript(DirPaths *path, const char* prefer_name)
     while (script_buffer[0] == ';') {
         if (!strncmp(buf, "mode", 4)) {
             buf += 4;
-
-            if (!strncmp(buf, "960", 3)) {
-                screen_size = SCREEN_SIZE_960x600;
-		buf += 3;
-	    } else if (!strncmp(buf, "800", 3)) {
-                screen_size = SCREEN_SIZE_800x600;
-                buf += 3;
-            } else if (!strncmp(buf, "400", 3)) {
-                screen_size = SCREEN_SIZE_400x300;
-                buf += 3;
-            } else if (!strncmp(buf, "320", 3)) {
-                screen_size = SCREEN_SIZE_320x240;
-                buf += 3;
-            } else if (!strncmp(buf, "w720", 4)) {
-                screen_size = SCREEN_SIZE_w720;
-                buf += 4;
-            } else if (!strncmp(buf, "w1080", 5)) {
-                screen_size = SCREEN_SIZE_w1080;
-                buf += 5;
+            bool is_wide = false;
+            int number = 0;
+            if (*buf == 'w') {
+                is_wide = true;
+                buf++;
+            }
+            while (*buf >= '0' && *buf <= '9') {
+                number *= 10;
+                number += *buf - '0';
+                buf++;
+            }
+            if (is_wide) {
+                screen_width = number * 16 / 9;
+                screen_height = number;
+            } else if (number == 960) {
+                // Special case to keep compatibility with old Ponscripter
+                screen_width = 960;
+                screen_height = 600;
             } else {
-                screen_size = SCREEN_SIZE_640x480;
-                buf += 3;
+                screen_width = number;
+                screen_height = number * 3 / 4;
             }
 
+            if (!strncmp(buf, "@2x", 3)) {
+                res_multiplier = 2;
+                buf += 3;
+            } else {
+                res_multiplier = 1;
+            }
+
+            if (!strncmp(buf, "@umineko", 8)) {
+                buf += 8;
+                multiplier_style = UMINEKO;
+            } else {
+                multiplier_style = FULL;
+            }
         }
         else if (!strncmp(buf, "value", 5)) {
             buf += 5;
@@ -1033,29 +1052,34 @@ int ScriptHandler::readScript(DirPaths *path, const char* prefer_name)
                 buf++;
             if (*buf != '\n') buf += 3;
         }
-        else {
+
+        while (*buf != ',' && *buf != '\n') {
+            buf++;
+        }
+        if (*buf++ == '\n') {
             break;
         }
 
-        if (*buf != ',') {
-            while (*buf++ != '\n') ;
-            break;
-        }
-
-        ++buf;
         while (isawspace(*buf)) ++buf;
     }
 
-    // game ID check
-    if ((*buf++ == ';') && (game_identifier.length() == 0))  {
-        while (isawspace(*buf)) ++buf;
-        if (!strncmp(buf, "gameid ", 7)) {
+    while (*buf++ == ';') {
+        const char* end = strchr(buf, '\n');
+        if (!end) { break; }
+        if (game_identifier.length() == 0 && !strncmp(buf, "gameid ", 7)) {
             buf += 7;
             int i = 0;
             while (buf[i++] >= ' ') ;
             game_identifier = pstring(buf, i - 1);
-            buf += i;
         }
+        else if (!strncmp(buf, "localsave ", 10)) {
+            buf += 10;
+            local_savedir = pstring(buf, end - buf).trim();
+            if (!local_savedir.ends_with("/")) {
+                local_savedir += "/";
+            }
+        }
+        buf = end + 1;
     }
 
     return labelScript();

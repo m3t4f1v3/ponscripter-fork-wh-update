@@ -1,6 +1,6 @@
-# Ponscripter-fork (steam)
+# Ponscripter-fork (07th-mod)
 
-![Travis-CI Build Status](https://travis-ci.org/sekaiproject/ponscripter-fork.svg)
+[![Build status](https://github.com/07th-mod/ponscripter-fork/workflows/Build/badge.svg)](../../actions)
 
 ## Introduction
 
@@ -12,21 +12,17 @@ games on Steam. It, however, does not have qualms with breaking compatibility in
 
 Other engines focussed on Western-language games include:
 
-* [Ponscripter](http://unclemion.com/onscripter/releases/) &mdash; The project this is based on
-* [ONScripter-EN](http://unclemion.com/onscripter/releases/) &mdash; An NScripter-compatible engine based on ONscripter
+* [Ponscripter](http://web.archive.org/web/20180812034417/http://unclemion.com/onscripter/) &mdash; The project this is based on
 * [Ren'Py](http://www.renpy.org/) &mdash; A modern visual novel engine with python scripting support.
 
 ### Documentation
 
-Ponscripter documentation is provided in the form of a set of manual
-pages. Start with ponscripter(7).
-
-You may also browse the documentation [online](https://sekaiproject.github.io/ponscripter-fork/doc/).
-
+* [Ponscripter Tutorial](https://07th-mod.github.io/ponscripter-fork) - Most likely you should start here
+* [Ponscripter API Reference](https://07th-mod.github.io/ponscripter-fork/api/) - Mirror of Uncle Mion's Ponscripter API reference
 
 ## Compatibility
 
-This incarnation of the engine has primarily been tested with the [Steam Narcissu side 2nd](http://store.steampowered.com/app/264380) script.
+This incarnation of the engine has primarily been tested with the [Umineko](https://store.steampowered.com/app/406550/) script.
 
 We strive to keep the engine able to compile and run correctly without the Steam runtime/api, but
 the Steam platforms are our primary targets.
@@ -34,33 +30,35 @@ the Steam platforms are our primary targets.
 The following platforms are supported:
 
 * Any modern Linux
-* Windows 7/8
+* Windows 7/8/10
 * OSX 10.9+
 
 Any issues on these platforms should be reported.
 
 ## Bugs
 
-Please report all bugs with this project to chronotrig.dev@gmail.com. Include your platform and, if possible, clear reproduction instructions.
+Please report all bugs with this project on the [issues page](../../issues). Include your platform and, if possible, clear reproduction instructions.
 
 
 ## Acknowledgements
 
-The original Ponscripter engine was maintained and, in great part, created by [Mion](http://unclemion.com).
+The original Ponscripter engine was maintained and, in great part, created by Mion.
 
 Ponscripter is built primarily on Ogapee's work, without which there
 would be nothing here.
 
 The version of ONScripter taken as a base also includes notable
-contributions from Chendo (original English support) and insani
-(further enhancements).
+contributions from Chendo (original English support), insani
+(further enhancements) and The Witch Hunt.
 
 The following people (in alphabetical order) have contributed 
 noteworthy patches and bug reports that have enhanced Ponscripter:
 
 * Agilis
+* chronotrig
 * Daniel Oaks
 * Euank
+* Klashikari
 * Mion of Sonozaki Futago-tachi
 * Roine Gustafsson
 * Roto
@@ -69,11 +67,11 @@ noteworthy patches and bug reports that have enhanced Ponscripter:
 Apologies to anyone not mentioned &mdash; please let me know so I can set the
 record straight!
 
-## Witch Hunt Fork
+## 07th-Mod fork
 
-The Witch Hunt fork of this repo is brought to you with huge thanks to everyone mentioned above, but the latest changes are being maintained by chronotrig, so feel free to bother him first regarding any issues (chronotrig.dev@gmail.com).
+The 07th-Mod fork of this repo is brought to you with huge thanks to everyone mentioned above, but the latest changes are being maintained by the [07th-Mod](https://07th-mod.com) team. If you have any issues with this fork, please feel free to report them on the issues page or bother us on Discord about it.
 
-This includes 2x mode, which can be used to support older Nscripter games at 2x resolution. See AnimationInfo.h for more details on usage. This feature will eventually be added as a config setting, but meanwhile, we at the Witch Hunt will be focusing on other various bugs and projects.
+This includes 2x mode, which can be used to support older Nscripter games at 2x resolution. This feature has been added as an extra argument to `;mode` (e.g. `;mode960@2x`). Widescreen support is also included, and can be enabled with `;modew720` or `;modew1080`.
 
 
 ## License

@@ -28,5 +28,7 @@ void imageFilterMean_SSE2(unsigned char *src1, unsigned char *src2, unsigned cha
 void imageFilterAddTo_SSE2(unsigned char *dst, unsigned char *src, int length);
 void imageFilterSubFrom_SSE2(unsigned char *dst, unsigned char *src, int length);
 void imageFilterBlend_SSE2(Uint32 *dst_buffer, Uint32 *src_buffer, Uint8 *alphap, int alpha, int length);
+bool alphaMaskBlend_SSE2(SDL_Surface* dst, SDL_Surface *s1, SDL_Surface *s2, SDL_Surface *mask_surface, const SDL_Rect& rect, Uint32 mask_value);
+void alphaMaskBlendConst_SSE2(SDL_Surface* dst, SDL_Surface *s1, SDL_Surface *s2, const SDL_Rect& rect, Uint32 mask_value);
 
 #endif

@@ -37,85 +37,79 @@
 
 void imageFilterMean_MMX(unsigned char *src1, unsigned char *src2, unsigned char *dst, int length)
 {
-    int n = length;
+    int i = 0;
 
     // Compute first few values so we're on a 8-byte boundary in dst
-    while( (((long)dst & 0x7) > 0) && (n > 0) ) {
-        MEAN_PIXEL();
-        --n; ++dst; ++src1; ++src2;
+    for (; !is_aligned(dst + i, 8) && (i < length); i++) {
+        dst[i] = mean_pixel(src1[i], src2[i]);
     }
 
     // Do bulk of processing using MMX (find the mean of 8 8-bit unsigned integers, with saturation)
     __m64 mask = _mm_set1_pi8(0x7F);
-    while(n >= 8) {
-        __m64 s1 = *((__m64*)src1);
+    for (; i < length - 7; i += 8) {
+        __m64 s1 = *((__m64*)(src1 + i));
         s1 = _mm_srli_pi16(s1, 1);
         s1 = _mm_and_si64(s1, mask);
-        __m64 s2 = *((__m64*)src2);
+        __m64 s2 = *((__m64*)(src2 + i));
         s2 = _mm_srli_pi16(s2, 1);
         s2 = _mm_and_si64(s2, mask);
-        __m64* d = (__m64*)dst;
+        __m64* d = (__m64*)(dst + i);
         *d = _mm_adds_pu8(s1, s2);
-
-        n -= 8; src1 += 8; src2 += 8; dst += 8;
     }
     _mm_empty();
 
     // If any bytes are left over, deal with them individually
-    ++n;
-    BASIC_MEAN();
+    for (; i < length; i++) {
+        dst[i] = mean_pixel(src1[i], src2[i]);
+    }
 }
 
 
 void imageFilterAddTo_MMX(unsigned char *dst, unsigned char *src, int length)
 {
-    int n = length;
+    int i = 0;
 
     // Compute first few values so we're on a 8-byte boundary in dst
-    while( (((long)dst & 0x7) > 0) && (n > 0) ) {
-        ADDTO_PIXEL();
-        --n; ++dst; ++src;
+    for (; !is_aligned(dst + i, 8) && (i < length); i++) {
+        addto_pixel(dst[i], src[i]);
     }
 
     // Do bulk of processing using MMX (add 8 8-bit unsigned integers, with saturation)
-    while(n >= 8) {
-        __m64* s = (__m64*)src;
-        __m64* d = (__m64*)dst;
+    for (; i < length - 7; i += 8) {
+        __m64* s = (__m64*)(src + i);
+        __m64* d = (__m64*)(dst + i);
         *d = _mm_adds_pu8(*d, *s);
-
-        n -= 8; src += 8; dst += 8;
     }
     _mm_empty();
 
     // If any bytes are left over, deal with them individually
-    ++n;
-    BASIC_ADDTO();
+    for (; i < length; i++) {
+        addto_pixel(dst[i], src[i]);
+    }
 }
 
 
 void imageFilterSubFrom_MMX(unsigned char *dst, unsigned char *src, int length)
 {
-    int n = length;
+    int i = 0;
 
     // Compute first few values so we're on a 8-byte boundary in dst
-    while( (((long)dst & 0x7) > 0) && (n > 0) ) {
-        SUBFROM_PIXEL();
-        --n; ++dst; ++src;
+    for (; !is_aligned(dst + i, 8) && (i < length); i++) {
+        subfrom_pixel(dst[i], src[i]);
     }
 
     // Do bulk of processing using MMX (sub 8 8-bit unsigned integers, with saturation)
-    while(n >= 8) {
-        __m64* s = (__m64*)src;
-        __m64* d = (__m64*)dst;
+    for (; i < length - 7; i += 8) {
+        __m64* s = (__m64*)(src + i);
+        __m64* d = (__m64*)(dst + i);
         *d = _mm_subs_pu8(*d, *s);
-
-        n -= 8; src += 8; dst += 8;
     }
     _mm_empty();
 
     // If any bytes are left over, deal with them individually
-    ++n;
-    BASIC_SUBFROM();
+    for (; i < length; i++) {
+        subfrom_pixel(dst[i], src[i]);
+    }
 }
 
 #endif

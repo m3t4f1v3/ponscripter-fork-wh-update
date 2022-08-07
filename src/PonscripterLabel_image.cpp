@@ -33,6 +33,8 @@ SDL_Surface *PonscripterLabel::loadImage(const pstring& filename,
 {
     if (!filename) return NULL;
 
+    if (lastRenderEvent < RENDER_EVENT_LOAD_IMAGE) { lastRenderEvent = RENDER_EVENT_LOAD_IMAGE; }
+
     SDL_Surface *tmp = NULL, *tmpb = NULL;
     int location = BaseReader::ARCHIVE_TYPE_NONE;
 
@@ -151,20 +153,20 @@ SDL_Surface *PonscripterLabel::loadImage(const pstring& filename,
         ret = retf;
     }
 
-    #ifdef USE_2X_MODE
-    int multiplier = twox ? 1 : 2;
-    SDL_Surface *retb = SDL_CreateRGBSurface(0, ret->w * multiplier, ret->h * multiplier, BPP, RMASK, GMASK, BMASK, AMASK);
-    SDL_BlitScaled(ret, NULL, retb, NULL);
+    if (res_multiplier != 1) {
+        int multiplier = twox ? 1 : res_multiplier;
+        SDL_Surface *retb = SDL_CreateRGBSurface(0, ret->w * multiplier, ret->h * multiplier, BPP, RMASK, GMASK, BMASK, AMASK);
+        SDL_BlitScaled(ret, NULL, retb, NULL);
 
-    SDL_FreeSurface( ret );
-    return retb;
-    #else
-    return ret;
-    #endif
+        SDL_FreeSurface( ret );
+        return retb;
+    } else {
+        return ret;
+    }
     
 }
 
-SDL_Surface *PonscripterLabel::createRectangleSurface(const pstring& filename)
+SDL_Surface *PonscripterLabel::createRectangleSurface(const char* filename)
 {
     int c=1, w=0, h=0;
     while (filename[c] != 0x0a && filename[c] != 0x00){
@@ -202,7 +204,7 @@ SDL_Surface *PonscripterLabel::createRectangleSurface(const pstring& filename)
 
     c = c2;
     for (int i=0 ; i<n ; i++){
-        rgb_t col = readColour((const char *)filename + c);
+        rgb_t col = readColour(filename + c);
         c += 7;
         while (filename[c] == ' ' || filename[c] == '\t') c++;
         
@@ -320,42 +322,57 @@ void PonscripterLabel::alphaMaskBlend(SDL_Surface *mask_surface, int trans_mode,
 
     mask_value >>= fmt->Bloss;
 
-    if (( trans_mode == ALPHA_BLEND_FADE_MASK ||
-          trans_mode == ALPHA_BLEND_CROSSFADE_MASK ) && mask_surface) {
-        for ( int i=0 ; i<rect.h ; i++ ) {
-            ONSBuf *mask_buffer = (ONSBuf *)mask_surface->pixels + mask_surface->w * ((rect.y+i)%mask_surface->h);
-            int offset=rect.x;
-            for ( int j=rect.w ; j ; j-- ){
-                Uint32 mask2 = 0;
-                Uint32 mask = *(mask_buffer + (offset%mask_surface->w)) & fmt->Bmask;
-                if ( mask_value > mask ){
-                    mask2 = mask_value - mask;
-                    if ( mask2 & overflow_mask ) mask2 = fmt->Bmask;
+    if (( trans_mode == ALPHA_BLEND_FADE_MASK || trans_mode == ALPHA_BLEND_CROSSFADE_MASK ) && mask_surface) {
+        bool accelerated_ok = sizeof(ONSBuf) == 4 && fmt->Bmask == 0xff;
+        if (accelerated_ok) {
+            bool ok = AnimationInfo::gfx.alphaMaskBlend(dst, src1, src2, mask_surface, rect, mask_value);
+            accelerated_ok &= ok;
+        }
+        if (!accelerated_ok) {
+            int mask_off_base_y = rect.y % mask_surface->h;
+            int mask_off_base_x = rect.x % mask_surface->w;
+            for ( int i=0, my=mask_off_base_y ; i<rect.h ; i++, my++ ) {
+                if (my >= mask_surface->h) { my = 0; }
+                ONSBuf *mask_buffer = (ONSBuf *)mask_surface->pixels + mask_surface->w * my;
+                int offset=rect.x;
+                for ( int j=rect.w, mx=mask_off_base_x ; j ; j--, mx++ ) {
+                    if (mx >= mask_surface->w) { mx = 0; }
+                    Uint32 mask2 = 0;
+                    Uint32 mask = *(mask_buffer + mx) & fmt->Bmask;
+                    if ( mask_value > mask ){
+                        mask2 = mask_value - mask;
+                        if ( mask2 & overflow_mask ) mask2 = fmt->Bmask;
+                    }
+    #ifndef BPP16
+                    Uint32 mask1 = mask2 ^ fmt->Bmask;
+    #endif
+                    BLEND_MASK_PIXEL();
+                    ++dst_buffer, ++src1_buffer, ++src2_buffer, ++offset;
                 }
-#ifndef BPP16
-                Uint32 mask1 = mask2 ^ fmt->Bmask;
-#endif
-                BLEND_MASK_PIXEL();
-                ++dst_buffer, ++src1_buffer, ++src2_buffer, ++offset;
+                src1_buffer += rwidth;
+                src2_buffer += rwidth;
+                dst_buffer  += rwidth;
             }
-            src1_buffer += rwidth;
-            src2_buffer += rwidth;
-            dst_buffer  += rwidth;
         }
     }
     else{ // ALPHA_BLEND_CONST
-        Uint32 mask2 = mask_value & fmt->Bmask;
+        if (sizeof(ONSBuf) == 4) {
+            AnimationInfo::gfx.alphaMaskBlendConst(dst, src1, src2, rect, mask_value);
+        }
+        else {
+            Uint32 mask2 = mask_value & fmt->Bmask;
 #ifndef BPP16
-        Uint32 mask1 = mask2 ^ fmt->Bmask;
+            Uint32 mask1 = mask2 ^ fmt->Bmask;
 #endif
-        for ( int i=rect.h ; i ; i-- ) {
-            for ( int j=rect.w ; j ; j-- ){
-                BLEND_MASK_PIXEL();
-                ++dst_buffer, ++src1_buffer, ++src2_buffer;
+            for ( int i=rect.h ; i ; i-- ) {
+                for ( int j=rect.w ; j ; j-- ){
+                    BLEND_MASK_PIXEL();
+                    ++dst_buffer, ++src1_buffer, ++src2_buffer;
+                }
+                src1_buffer += rwidth;
+                src2_buffer += rwidth;
+                dst_buffer  += rwidth;
             }
-            src1_buffer += rwidth;
-            src2_buffer += rwidth;
-            dst_buffer  += rwidth;
         }
     }
     

@@ -802,11 +802,6 @@ void PonscripterLabel::DoSetwindow(PonscripterLabel::WindowDef& def)
 
 void PonscripterLabel::setwindowCore()
 {
-    int res_multiplier = 1;
-    #ifdef USE_2X_MODE
-    res_multiplier = 2;
-    #endif
-
     WindowDef wind;
     wind.left      = script_h.readIntValue() * res_multiplier;
     wind.top       = script_h.readIntValue() * res_multiplier;
@@ -1386,8 +1381,7 @@ int PonscripterLabel::playCommand(const pstring& cmd)
 
 int PonscripterLabel::ofscopyCommand(const pstring& cmd)
 {
-  fprintf(stderr, "Non-upgraded command, help\n");
-    SDL_BlitSurface(screen_surface, NULL, accumulation_surface, NULL);
+    fprintf(stderr, "Non-upgraded command, help\n");
 
     return RET_CONTINUE;
 }
@@ -1407,10 +1401,6 @@ int PonscripterLabel::mspCommand(const pstring& cmd)
     int ret = leaveTextDisplayMode();
     if (ret != RET_NOMATCH) return ret;
 
-    int res_multiplier = 1;
-    #ifdef USE_2X_MODE
-    res_multiplier = 2;
-    #endif
     // Haeleth extension: the form `msp NUM,NUM,NUM[,NUM]' is augmented
     // by the form `msp NUM,NUM' which modifies only the transparency.
     // Likewise `msp2 NUM,NUM,NUM,NUM,NUM,NUM[,NUM]' is augmented by
@@ -1795,11 +1785,6 @@ int PonscripterLabel::lspCommand(const pstring& cmd)
 //TODO: add support for "lsp2add" etc.
     int ret = leaveTextDisplayMode();
     if (ret != RET_NOMATCH) return ret;
-
-    int res_multiplier = 1;
-    #ifdef USE_2X_MODE
-    res_multiplier = 2;
-    #endif
 
     bool sprite2 = cmd == "lsp2" || cmd == "lsph2";
     bool hidden = cmd == "lsph" || cmd == "lsph2";
@@ -2301,19 +2286,15 @@ int PonscripterLabel::gettabCommand(const pstring& cmd)
 int PonscripterLabel::getspsizeCommand(const pstring& cmd)
 {
     int no = script_h.readIntValue();
-
-    int res_multiplier = 1;
-    #ifdef USE_2X_MODE
-    res_multiplier = 2;
-    #endif
+    int multiplier = multiplier_style <= ScriptHandler::UMINEKO ? 1 : res_multiplier;
 
     script_h.readIntExpr().mutate(
         (sprite_info[no].pos.w * screen_ratio2 / screen_ratio1) /
-        res_multiplier
+        multiplier
     );
     script_h.readIntExpr().mutate(
         (sprite_info[no].pos.h * screen_ratio2 / screen_ratio1) /
-        res_multiplier
+        multiplier
     );
     if (script_h.hasMoreArgs())
         script_h.readIntExpr().mutate(sprite_info[no].num_of_cells);
@@ -2355,7 +2336,7 @@ int PonscripterLabel::getscreenshotCommand(const pstring& cmd)
 	    SDL_CreateRGBSurface(0, w, h, 32, 0, 0, 0, 0);
 
     SDL_Surface* surface =
-	SDL_ConvertSurface(screen_surface,image_surface->format, SDL_SWSURFACE);
+        SDL_ConvertSurface(accumulation_surface, image_surface->format, SDL_SWSURFACE);
 
     AnimationInfo::resizeSurface(surface, screenshot_surface);
     SDL_FreeSurface(surface);
@@ -2504,10 +2485,7 @@ int PonscripterLabel::getenterCommand(const pstring& cmd)
 
 int PonscripterLabel::getcursorposCommand(const pstring& cmd)
 {
-    int res_divider = 1;
-    #ifdef USE_2X_MODE
-    res_divider = 2;
-    #endif
+	int res_divider = res_multiplier;
     script_h.readIntExpr().mutate(int(floor(sentence_font.GetX() / res_divider)));
     script_h.readIntExpr().mutate(sentence_font.GetY() / res_divider);
     return RET_CONTINUE;
@@ -2785,11 +2763,6 @@ int PonscripterLabel::drawsp3Command(const pstring& cmd)
     int cell_no   = script_h.readIntValue();
     int alpha     = script_h.readIntValue();
 
-    int res_multiplier = 1;
-    #ifdef USE_2X_MODE
-    res_multiplier = 2;
-    #endif
-
     int x         = script_h.readIntValue() * screen_ratio1 * res_multiplier / screen_ratio2;
     int y         = script_h.readIntValue() * screen_ratio1 * res_multiplier / screen_ratio2;
 
@@ -2813,7 +2786,7 @@ int PonscripterLabel::drawsp3Command(const pstring& cmd)
         si.inv_mat[1][1] =  si.mat[0][0] * 1000 / denom;
     }
 
-    SDL_Rect clip = { 0, 0, screen_surface->w, screen_surface->h };
+    SDL_Rect clip = { 0, 0, accumulation_surface->w, accumulation_surface->h };
     si.blendOnSurface2(accumulation_surface, x, y, clip, alpha);
     si.setCell(old_cell_no);
 
@@ -2827,11 +2800,6 @@ int PonscripterLabel::drawsp2Command(const pstring& cmd)
     int cell_no   = script_h.readIntValue();
     int alpha     = script_h.readIntValue();
 
-    int res_multiplier = 1;
-    #ifdef USE_2X_MODE
-    res_multiplier = 2;
-    #endif
-
     AnimationInfo &si = sprite_info[sprite_no];
     si.pos.x   = script_h.readIntValue() * screen_ratio1 * res_multiplier / screen_ratio2;
     si.pos.y   = script_h.readIntValue() * screen_ratio1 * res_multiplier / screen_ratio2;
@@ -2843,7 +2811,7 @@ int PonscripterLabel::drawsp2Command(const pstring& cmd)
     int old_cell_no = si.current_cell;
     si.setCell(cell_no);
 
-    SDL_Rect clip = { 0, 0, screen_surface->w, screen_surface->h };
+    SDL_Rect clip = { 0, 0, accumulation_surface->w, accumulation_surface->h };
     si.blendOnSurface2(accumulation_surface, si.pos.x, si.pos.y, clip, alpha);
     si.setCell(old_cell_no);
 
@@ -2856,11 +2824,6 @@ int PonscripterLabel::drawspCommand(const pstring& cmd)
     int sprite_no = script_h.readIntValue();
     int cell_no   = script_h.readIntValue();
     int alpha     = script_h.readIntValue();
-
-    int res_multiplier = 1;
-    #ifdef USE_2X_MODE
-    res_multiplier = 2;
-    #endif
 
     int x         = script_h.readIntValue() * screen_ratio1 * res_multiplier / screen_ratio2;
     int y         = script_h.readIntValue() * screen_ratio1 * res_multiplier / screen_ratio2;
@@ -2913,7 +2876,7 @@ int PonscripterLabel::drawbg2Command(const pstring& cmd)
     bg_info.rot     = script_h.readIntValue();
     bg_info.calcAffineMatrix();
 
-    SDL_Rect clip = { 0, 0, screen_surface->w, screen_surface->h };
+    SDL_Rect clip = { 0, 0, accumulation_surface->w, accumulation_surface->h };
     bg_info.blendOnSurface2(accumulation_surface, x, y, clip, 256);
 
     return RET_CONTINUE;
@@ -3415,11 +3378,6 @@ int PonscripterLabel::bltCommand(const pstring& cmd)
     int sx, sy, sw, sh;
     int multiplier = 2;
 
-    int res_multiplier = 1;
-    #ifdef USE_2X_MODE
-    res_multiplier = 2;
-    #endif
-
     dx = script_h.readIntValue() * screen_ratio1 / screen_ratio2 * res_multiplier;
     dy = script_h.readIntValue() * screen_ratio1 / screen_ratio2 * res_multiplier;
     dw = script_h.readIntValue() * screen_ratio1 / screen_ratio2 * res_multiplier;
@@ -3437,13 +3395,11 @@ int PonscripterLabel::bltCommand(const pstring& cmd)
         SDL_Rect src_rect = { sx, sy, sw, sh };
         SDL_Rect dst_rect = { dx, dy, dw, dh };
 
-        SDL_BlitSurface(btndef_info.image_surface, &src_rect, screen_surface, &dst_rect);
+        SDL_BlitSurface(btndef_info.image_surface, &src_rect, accumulation_surface, &dst_rect);
         //TODO, fix this. haven't found it used yet
         //SDL_UpdateRect(screen_surface, dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h);
-        SDL_UpdateTexture(screen_tex, NULL, screen_surface->pixels, screen_surface->pitch);
-        SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, screen_tex, NULL, NULL);
-        SDL_RenderPresent(renderer);
+        SDL_UpdateTexture(screen_tex, NULL, accumulation_surface->pixels, accumulation_surface->pitch);
+        rerender();
         dirty_rect.clear();
     }
     else {
@@ -3511,11 +3467,6 @@ int PonscripterLabel::endrollCommand(const pstring& cmd)
     int interval, dist, count, multiplier = 2, timecounter = 0, amountcounter = 0;
     unsigned int lasttime, nexttime, starttime;
 
-    int res_multiplier = 1;
-    #ifdef USE_2X_MODE
-    res_multiplier = 2;
-    #endif
-
     dx = script_h.readIntValue() * screen_ratio1 / screen_ratio2 * res_multiplier;
     dy = script_h.readIntValue() * screen_ratio1 / screen_ratio2 * res_multiplier;
     dw = script_h.readIntValue() * screen_ratio1 / screen_ratio2 * res_multiplier;
@@ -3575,13 +3526,11 @@ int PonscripterLabel::endrollCommand(const pstring& cmd)
             amountcounter += dist;
             SDL_Rect src_rect = { sx, sy + amountcounter, sw, sh };
             SDL_Rect dst_rect = { dx, dy, dw, dh };
-            SDL_BlitSurface(btndef_info.image_surface, &src_rect, screen_surface, &dst_rect);
+            SDL_BlitSurface(btndef_info.image_surface, &src_rect, accumulation_surface, &dst_rect);
             //TODO, fix this. haven't found it used yet
             //SDL_UpdateRect(screen_surface, dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h);
-            SDL_UpdateTexture(screen_tex, NULL, screen_surface->pixels, screen_surface->pitch);
-            SDL_RenderClear(renderer);
-            SDL_RenderCopy(renderer, screen_tex, NULL, NULL);
-            SDL_RenderPresent(renderer);
+            SDL_UpdateTexture(screen_tex, NULL, accumulation_surface->pixels, accumulation_surface->pitch);
+            rerender();
             //dirty_rect.clear();
 
             nexttime = SDL_GetTicks();
@@ -3665,7 +3614,6 @@ int PonscripterLabel::bidirectCommand(const pstring& cmd)
 
 int PonscripterLabel::bgcopyCommand(const pstring& cmd)
 {
-    SDL_BlitSurface(screen_surface, NULL, accumulation_surface, NULL);
     fprintf(stderr, "Likely partially-updated command used bgcopyCommand\n");
 
     bg_info.num_of_cells = 1;
@@ -3765,6 +3713,11 @@ int PonscripterLabel::barCommand(const pstring& cmd)
     bar_info[no]->max_param = script_h.readIntValue();
 
     bar_info[no]->color = readColour(script_h.readStrValue());
+
+    if (bar_info[no]->max_param == 0) {
+        // Prevent divide-by-zero errors
+        bar_info[no]->max_param = 1;
+    }
 
     int w = bar_info[no]->max_width * bar_info[no]->param / bar_info[no]->max_param;
     if (bar_info[no]->max_width > 0 && w > 0) {

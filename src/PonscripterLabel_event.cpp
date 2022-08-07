@@ -282,8 +282,10 @@ void PonscripterLabel::startTimer(int count)
 }
 
 
-void PonscripterLabel::advancePhase(int count) {
-    timer_event_time = SDL_GetTicks() + count;
+void PonscripterLabel::advancePhase(int count, bool relativeToNow) {
+    Uint32 now = SDL_GetTicks();
+    timer_event_time = (relativeToNow ? now : timer_event_time) + count;
+    if (timer_event_time < now) timer_event_time = now;
     timer_event_flag = true;
 
     SDL_Event event;
@@ -1087,12 +1089,12 @@ void PonscripterLabel::keyPressEvent(SDL_KeyboardEvent* event)
     }
 }
 
-
-void PonscripterLabel::timerEvent(void)
+// Returns true if the next timer event should be delayed until the next frame
+bool PonscripterLabel::timerEvent(void)
 {
     timerEventTop:
 
-    int ret;
+    bool ret = false;
 
     if (event_mode & WAIT_TIMER_MODE) {
         int duration = proceedAnimation();
@@ -1162,9 +1164,10 @@ void PonscripterLabel::timerEvent(void)
             script_h.setCurrent(current);
             readToken();
             advancePhase();
+            ret = true;
         }
 
-        return;
+        return ret;
     }
     else {
         if (system_menu_mode != SYSTEM_NULL
@@ -1180,6 +1183,7 @@ void PonscripterLabel::timerEvent(void)
     }
 
     volatile_button_state.button = 0;
+    return ret;
 }
 
 Uint32 PonscripterLabel::getRefreshRateDelay() {
@@ -1197,6 +1201,8 @@ Uint32 PonscripterLabel::getRefreshRateDelay() {
 int PonscripterLabel::eventLoop()
 {
     SDL_Event event, tmp_event;
+    frameNo = 0;
+    perfMultiplier = 1000.0/SDL_GetPerformanceFrequency();
 
     /* Note, this rate can change if the window is dragged to a new
        screen or the monitor settings are changed while running.
@@ -1368,8 +1374,20 @@ int PonscripterLabel::eventLoop()
                 last_refresh = current_time;
                 rerender();
 
+                if (renderTimesFile) {
+                    frameNo++;
+                    if (frameNo % 64 == 0) { fflush(renderTimesFile); }
+                }
+
                 /* Refresh time since rerender does take some odd ms */
                 current_time = SDL_GetTicks();
+
+                if ((current_time - last_refresh) >= (refresh_delay - 1)) {
+                    // Some systems delay present if you do it too fast
+                    // If `rerender` gets delayed, and some other event comes in during that time, the below code will skip timer events expecting to get another chance at the end of the queue... except when that comes another rerender happens with its delay...
+                    // To avoid this issue, make sure there's always a few ms before the next rerender is expected to happen
+                    last_refresh = current_time - (refresh_delay - 2);
+                }
             }
 
             SDL_PumpEvents();
@@ -1384,8 +1402,27 @@ int PonscripterLabel::eventLoop()
             if(SDL_PeepEvents(&tmp_event, 1, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT) == 0) {
                 if(timer_event_flag && timer_event_time <= current_time) {
                     timer_event_flag = false;
-
-                    timerEvent();
+                    Uint64 begin;
+                    if (renderTimesFile) {
+                        begin = SDL_GetPerformanceCounter();
+                        lastRenderEvent = RENDER_EVENT_UNKNOWN;
+                    }
+                    if (timerEvent() && timer_event_time <= last_refresh + refresh_delay) {
+                        timer_event_time = last_refresh + refresh_delay;
+                    }
+                    if (renderTimesFile) {
+                        Uint64 elapsed = SDL_GetPerformanceCounter() - begin;
+                        float msElapsed = elapsed * perfMultiplier;
+                        const char* eventName;
+                        switch (lastRenderEvent) {
+                            case RENDER_EVENT_UNKNOWN:    eventName = "TimerEvent"; break;
+                            case RENDER_EVENT_TEXT:       eventName = "Text";       break;
+                            case RENDER_EVENT_EFFECT:     eventName = "Effect";     break;
+                            case RENDER_EVENT_LOAD_AUDIO: eventName = "AudioLoad";  break;
+                            case RENDER_EVENT_LOAD_IMAGE: eventName = "ImageLoad";  break;
+                        }
+                        fprintf(renderTimesFile, "%llu,%s,%f\n", frameNo, eventName, msElapsed);
+                    }
                 } else if(last_refresh <= current_time && refresh_delay >= (current_time - last_refresh)) {
                     SDL_Delay(std::min(refresh_delay / 3, refresh_delay - (current_time - last_refresh)));
                 }

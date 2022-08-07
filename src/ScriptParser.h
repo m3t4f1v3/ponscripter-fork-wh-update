@@ -102,9 +102,9 @@ public:
 #ifdef MACOSX
     void checkBundled();
     bool isBundled() {return is_bundled; }
-    pstring bundleResPath() { return bundle_res_path; }
-    pstring bundleAppPath() { return bundle_app_path; }
-    pstring bundleAppName() { return bundle_app_name; }
+    const pstring& bundleResPath() { return bundle_res_path; }
+    const pstring& bundleAppPath() { return bundle_app_path; }
+    const pstring& bundleAppName() { return bundle_app_name; }
 #endif
 
     /* Command */
@@ -288,7 +288,8 @@ protected:
     /* ---------------------------------------- */
     /* Global definitions */
     int preferred_width;
-    int script_width, script_height;
+    int script_width, script_height, res_multiplier;
+    ScriptHandler::MultiplierStyle multiplier_style;
     uint16_t    screen_width, screen_height;
     int    screen_texture_width, screen_texture_height;
     int    screen_bpp;

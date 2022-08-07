@@ -120,6 +120,7 @@ Makefile*
 .agignore
 /src/extlib/src/steam-sdk
 !/src/extlib/src/steam-sdk/configure
+!/src/extlib/src/steam-sdk/CMakeLists.txt
 *.app
 /gamedata
 /src/narcissu2

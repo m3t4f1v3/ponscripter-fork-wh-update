@@ -35,6 +35,7 @@
 #include <string.h>
 #include "defs.h"
 #include "BaseReader.h"
+#include "graphics_accelerated.h"
 
 // To allow 2x mode designed for reproducing old Nscripter games at 2x resolution,
 // change the following line to:
@@ -43,12 +44,7 @@
 // e.g.
 // lsp image2x,":b;bmp\image2x.png",2,325,230
 // lsp image2x,":ba;bmp\image2x.png",2,325,230
-// #define USE_2X_MODE
-#define USE_2X_MODE_OFF
-
-#if defined (USE_X86_GFX) && !defined(MACOSX)
-#include <cpuid.h>
-#endif
+// 2x mode is now enabled at runtime by specifying `@2x` resources
 
 #if defined(BPP16) && !defined(NO_LAYER_EFFECTS)
 #define NO_LAYER_EFFECTS //layers not supported for BPP16 yet
@@ -177,7 +173,8 @@ public:
 private:
     int locked;
 public:
-    
+    static AcceleratedGraphicsFunctions gfx;
+
     AnimationInfo();
     AnimationInfo(const AnimationInfo &anim);
     ~AnimationInfo();
@@ -216,16 +213,6 @@ public:
     void fill(rgb_t rgb, Uint8 a) { fill(rgb.r, rgb.g, rgb.b, a); }
     void setupImage(SDL_Surface* surface, SDL_Surface* surface_m,
                     bool has_alpha, int ratio1=1, int ratio2=1);
-    static void setCpufuncs(unsigned int func);
-    static unsigned int getCpufuncs();
-    static void imageFilterMean(unsigned char *src1, unsigned char *src2,
-                                unsigned char *dst, int length);
-    static void imageFilterAddTo(unsigned char *dst, unsigned char *src,
-                                 int length);
-    static void imageFilterSubFrom(unsigned char *dst, unsigned char *src,
-                                   int length);
-    static void imageFilterBlend(Uint32 *dst_buffer, Uint32 *src_buffer,
-                                 Uint8 *alphap, int alpha, int length);
 
     //Mion: for resizing (moved from ONScripterLabel)
     static void resetResizeBuffer();

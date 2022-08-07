@@ -227,6 +227,8 @@ PonscripterLabel::drawString(const char* str, rgb_t color, Fontinfo* info,
             continue;
         }
 
+        if (!*str) { break; }
+
         if (*str == 0x0a || (*str == '\\' && info->is_newline_accepted)) {
             info->newLine();
             str++;
@@ -373,7 +375,10 @@ int PonscripterLabel::clickWait(bool display_char)
 {
     const char* c = script_h.getStrBuf(string_buffer_offset);
 
-    if ((skip_flag || draw_one_page_flag || ctrl_pressed_status) &&
+    bool enabled = current_read_language == -1 || current_read_language == current_language;
+    display_char &= enabled;
+
+    if ((skip_flag || draw_one_page_flag || ctrl_pressed_status || !enabled) &&
         !textgosub_label) {
         clickstr_state = CLICK_NONE;
         skip_to_wait = 0;
@@ -390,9 +395,7 @@ int PonscripterLabel::clickWait(bool display_char)
         return RET_CONTINUE | RET_NOREAD;
     }
     else {
-        if (current_read_language == -1 || current_read_language == current_language) {
-            clickstr_state   = CLICK_WAIT;
-        }
+        clickstr_state = CLICK_WAIT;
         if (skip_to_wait || (sentence_font.wait_time == 0)) {
             skip_to_wait = 0;
             flush(refreshMode());
@@ -430,8 +433,11 @@ int PonscripterLabel::clickNewPage(bool display_char)
 {
     const char* c = script_h.getStrBuf(string_buffer_offset);
 
-    if (current_read_language != -1 && current_read_language != current_language) {
+    bool enabled = current_read_language == -1 || current_read_language == current_language;
+    if (enabled) {
         clickstr_state = CLICK_NEWPAGE;
+    } else {
+        display_char = false;
     }
 
     if (display_char) {
@@ -469,12 +475,14 @@ int PonscripterLabel::clickNewPage(bool display_char)
         doClickEnd();
     }
 
-    return RET_WAIT | RET_NOREAD;
+    return (enabled ? RET_WAIT : RET_CONTINUE) | RET_NOREAD;
 }
 
 
 int PonscripterLabel::textCommand()
 {
+    if (lastRenderEvent < RENDER_EVENT_TEXT) { lastRenderEvent = RENDER_EVENT_TEXT; }
+
     if (pretextgosub_label
         && (line_enter_status == 0
             || (line_enter_status == 1
@@ -737,7 +745,7 @@ int PonscripterLabel::processText()
                 wait_time = default_text_speed[text_speed_no];
             else
                 wait_time = sentence_font.wait_time;
-            advancePhase(wait_time * 100 / global_speed_modifier);
+            advancePhase(wait_time * 100 / global_speed_modifier, false);
             return RET_WAIT | RET_NOREAD;
         }
         event_mode = IDLE_EVENT_MODE;

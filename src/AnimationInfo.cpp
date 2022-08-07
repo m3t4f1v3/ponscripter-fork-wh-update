@@ -32,14 +32,7 @@
 
 #include "graphics_common.h"
 
-#if defined(USE_X86_GFX)
-#include "graphics_mmx.h"
-#include "graphics_sse2.h"
-#endif
-
-#if defined(USE_PPC_GFX)
-#include "graphics_altivec.h"
-#endif
+#include "graphics_accelerated.h"
 
 #include <math.h>
 #ifndef M_PI
@@ -47,7 +40,7 @@
 #endif
 
 //Mion: for special graphics routine handling
-static unsigned int cpufuncs;
+AcceleratedGraphicsFunctions AnimationInfo::gfx;
 
 
 AnimationInfo::AnimationInfo()
@@ -460,7 +453,7 @@ void AnimationInfo::blendOnSurface(SDL_Surface* dst_surface, int dst_x,
                 alphap += image_surface->w - dst_rect.w;
 #else
                 if (src_buffer >= srcmax) goto break2;
-                imageFilterBlend(dst_buffer, src_buffer, alphap, alpha,
+                gfx.imageFilterBlend(dst_buffer, src_buffer, alphap, alpha,
                                  dst_rect.w);
                 src_buffer += total_width;
                 dst_buffer += dst_surface->w;
@@ -479,7 +472,7 @@ void AnimationInfo::blendOnSurface(SDL_Surface* dst_surface, int dst_x,
 
             for (int i=dst_rect.h ; i ; --i){
                 if (src_buf >= srcmax) goto break2;
-                imageFilterAddTo(dst_buf, src_buf, dst_rect.w*4);
+                gfx.imageFilterAddTo(dst_buf, src_buf, dst_rect.w*4);
                 src_buf += total_width * 4;
                 dst_buf += dst_surface->w * 4;
             }
@@ -509,7 +502,7 @@ void AnimationInfo::blendOnSurface(SDL_Surface* dst_surface, int dst_x,
 
             for (int i=dst_rect.h ; i ; --i){
                 if (src_buf >= srcmax) goto break2;
-                imageFilterSubFrom(dst_buf, src_buf, dst_rect.w*4);
+                gfx.imageFilterSubFrom(dst_buf, src_buf, dst_rect.w*4);
                 src_buf += total_width * 4;
                 dst_buf += dst_surface->w * 4;
             }
@@ -1071,131 +1064,6 @@ bool AnimationInfo::update_showing()
         return true;
     }
     return false;   
-}
-
-
-void AnimationInfo::setCpufuncs(unsigned int func)
-{
-    cpufuncs = func;
-}
-
-
-unsigned int AnimationInfo::getCpufuncs()
-{
-    return cpufuncs;
-}
-
-
-void AnimationInfo::imageFilterMean(unsigned char *src1, unsigned char *src2, unsigned char *dst, int length)
-{
-#if defined(USE_PPC_GFX)
-    if(cpufuncs & CPUF_PPC_ALTIVEC) {
-        imageFilterMean_Altivec(src1, src2, dst, length);
-    } else {
-        int n = length + 1;
-        BASIC_MEAN();
-    }
-#elif defined(USE_X86_GFX)
-
-#ifndef MACOSX
-    if (cpufuncs & CPUF_X86_SSE2) {
-#endif // !MACOSX
-
-        imageFilterMean_SSE2(src1, src2, dst, length);
-
-#ifndef MACOSX
-    } else if (cpufuncs & CPUF_X86_MMX) {
-
-        imageFilterMean_MMX(src1, src2, dst, length);
-
-    } else {
-        int n = length + 1;
-        BASIC_MEAN();
-    }
-#endif // !MACOSX
-
-#else // no special gfx handling
-    int n = length + 1;
-    BASIC_MEAN();
-#endif
-}
-
-
-void AnimationInfo::imageFilterAddTo(unsigned char *dst, unsigned char *src, int length)
-{
-#if defined(USE_PPC_GFX)
-    if(cpufuncs & CPUF_PPC_ALTIVEC) {
-        imageFilterAddTo_Altivec(dst, src, length);
-    } else {
-        int n = length + 1;
-        BASIC_ADDTO();
-    }
-#elif defined(USE_X86_GFX)
-
-#ifndef MACOSX
-    if (cpufuncs & CPUF_X86_SSE2) {
-#endif // !MACOSX
-
-        imageFilterAddTo_SSE2(dst, src, length);
-
-#ifndef MACOSX
-    } else if (cpufuncs & CPUF_X86_MMX) {
-
-        imageFilterAddTo_MMX(dst, src, length);
-
-    } else {
-        int n = length + 1;
-        BASIC_ADDTO();
-    }
-#endif // !MACOSX
-
-#else // no special gfx handling
-    int n = length + 1;
-    BASIC_ADDTO();
-#endif
-}
-
-
-void AnimationInfo::imageFilterSubFrom(unsigned char *dst, unsigned char *src, int length)
-{
-#if defined(USE_PPC_GFX)
-    if(cpufuncs & CPUF_PPC_ALTIVEC) {
-        imageFilterSubFrom_Altivec(dst, src, length);
-    } else {
-        int n = length + 1;
-        BASIC_SUBFROM();
-    }
-#elif defined(USE_X86_GFX)
-
-#ifndef MACOSX
-    if (cpufuncs & CPUF_X86_SSE2) {
-#endif // !MACOSX
-
-        imageFilterSubFrom_SSE2(dst, src, length);
-
-#ifndef MACOSX
-    } else if (cpufuncs & CPUF_X86_MMX) {
-
-        imageFilterSubFrom_MMX(dst, src, length);
-
-    } else {
-        int n = length + 1;
-        BASIC_SUBFROM();
-    }
-#endif // !MACOSX
-
-#else // no special gfx handling
-    int n = length + 1;
-    BASIC_SUBFROM();
-#endif
-}
-
-
-void AnimationInfo::imageFilterBlend(Uint32 *dst_buffer, Uint32 *src_buffer,
-                                     Uint8 *alphap, int alpha, int length)
-{
-    int n = length + 1;
-    BASIC_BLEND();
 }
 
 

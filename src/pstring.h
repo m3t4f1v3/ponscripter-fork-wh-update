@@ -8,7 +8,78 @@ typedef CBString pstring;
 #define PSTRING_H
 
 #include <SDL.h>
+#include <algorithm>
 #include "encoding.h"
+
+/// A piece of a pstring
+/// @warning Holds a non-owning reference to the source string, convert it to a pstring before storing
+struct psubstr {
+private:
+    static const pstring emptystr;
+public:
+    const pstring& source;
+    int start;
+    int end;
+
+    /// psubstr empty string
+    psubstr(): source(emptystr), start(0), end(0) {}
+    /// psubstr covering a whole string
+    psubstr(const pstring& whole): source(whole), start(0), end(whole.length()) {}
+    /// psubstr from start to the end of a string
+    psubstr(const pstring& source, int start): source(source), start(start), end(source.length()) {}
+    /// psubstr from start to end
+    psubstr(const pstring& source, int start, int end): source(source), start(start), end(end) {}
+
+    /// Move the front of the substring forward by `amt`, clamped to [0, end]
+    /// (Positive numbers shrink the substring, negataive numbers grow)
+    psubstr adjustFront(int amt) const {
+        int newstart = std::max(std::min(start + amt, end), 0);
+        return psubstr(source, newstart, end);
+    }
+
+    /// Move the end of the string forward by `amt`, clamped to [start, strlen]
+    /// (Positive numbers grow the substring, negative numbers shrink)
+    psubstr adjustEnd(int amt) const {
+        int newend = std::max(std::min(end + amt, source.length()), start);
+        return psubstr(source, start, newend);
+    }
+
+    operator pstring() const {
+        return source.midstr(start, end - start);
+    }
+};
+
+/// Split the string on the first occurance of the given character
+///
+/// The first of the returned pair will be the section of the string up to but not including `delimiter`
+/// The second will be the section of the string after `delimiter` (neither will contain `delimiter`)
+/// If `str` doesn't contain `delimiter`, the second will be an empty substring
+inline std::pair<psubstr, psubstr>
+pstr_split_first(const pstring& string, char delimiter)
+{
+    int idx = string.find(delimiter);
+    if (idx != BSTR_ERR) {
+        return std::make_pair(psubstr(string, 0, idx), psubstr(string, idx + 1));
+    } else {
+        return std::make_pair(psubstr(string), psubstr());
+    }
+}
+
+/// Split the string on the last occurance of the given character
+///
+/// The first of the returned pair will be the section of the string up to but not including `delimiter`
+/// The second will be the section of the string after `delimiter` (neither will contain `delimiter`)
+/// If `str` doesn't contain `delimiter`, the first will be an empty substring
+inline std::pair<psubstr, psubstr>
+pstr_split_last(const pstring& string, char delimiter)
+{
+    int idx = string.reversefind(delimiter, string.length());
+    if (idx != BSTR_ERR) {
+        return std::make_pair(psubstr(string, 0, idx), psubstr(string, idx + 1));
+    } else {
+        return std::make_pair(psubstr(), psubstr(string));
+    }
+}
 
 // Encoding-aware function to replace ASCII characters in a string.
 inline void

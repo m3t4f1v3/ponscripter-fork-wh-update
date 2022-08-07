@@ -279,18 +279,22 @@ public:
 
     VariableInfo current_variable;
 
-    int screen_size;
-    enum { SCREEN_SIZE_640x480 = 0,
-           SCREEN_SIZE_800x600 = 1,
-           SCREEN_SIZE_400x300 = 2,
-           SCREEN_SIZE_320x240 = 3,
-           SCREEN_SIZE_960x600 = 4,
-           SCREEN_SIZE_w720 = 5,
-           SCREEN_SIZE_w1080 = 6 };
+    int screen_width;
+    int screen_height;
+    int res_multiplier;
+    /// Which things should `res_multiplier` apply to?
+    /// @Note When adding new enum values, order them by the amount of things `res_multiplier` should change (rather than trying to preserve old IDs) so that individual usages can depend on <= checks rather than individually checking enum values
+    enum MultiplierStyle {
+        UMINEKO = 0, ///< Apply multiplier to things identically to the build used for the Steam release of Umineko
+        FULL    = 1, ///< Apply multiplier to all things (for maximum compatibility with nscripter upscales)
+    };
+    MultiplierStyle multiplier_style;
     int global_variable_border;
 
     pstring game_identifier;
     pstring save_path;
+    /// Alternative save directory used in local/steam mode (appended to exe directory)
+    pstring local_savedir;
     //Mion: savedir is set by savedirCommand, stores save files
     // and main stored gamedata files except envdata
     pstring savedir;

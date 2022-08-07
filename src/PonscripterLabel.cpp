@@ -27,6 +27,7 @@
 #include "PonscripterMessage.h"
 #include "resources.h"
 #include <ctype.h>
+#include <sys/stat.h>
 
 #if defined(USE_PPC_GFX)
 # if defined(__linux__) || (defined(__FreeBSD__) && __FreeBSD__ >= 12)
@@ -604,78 +605,9 @@ PonscripterLabel::PonscripterLabel()
       music_cmd(getenv("PLAYER_CMD")),
       midi_cmd(getenv("MUSIC_CMD"))
 {
-#if defined (USE_X86_GFX) && !defined(MACOSX)
-    // determine what functions the cpu supports (Mion)
-    {
-        unsigned int func, eax, ebx, ecx, edx;
-        func = AnimationInfo::CPUF_NONE;
-        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) != 0) {
-            printf("System info: Intel CPU, with functions: ");
-            if (edx & bit_MMX) {
-                func |= AnimationInfo::CPUF_X86_MMX;
-                printf("MMX ");
-            }
-            if (edx & bit_SSE) {
-                func |= AnimationInfo::CPUF_X86_SSE;
-                printf("SSE ");
-            }
-            if (edx & bit_SSE2) {
-                func |= AnimationInfo::CPUF_X86_SSE2;
-                printf("SSE2 ");
-            }
-            printf("\n");
-        }
-        AnimationInfo::setCpufuncs(func);
-    }
-#elif defined(USE_PPC_GFX) && (defined(__linux__) || (defined(__FreeBSD__) && __FreeBSD__ >= 12))
-    // Determine if this PPC CPU supports AltiVec
-    {
-        unsigned int func = AnimationInfo::CPUF_NONE;
-        unsigned long hwcap = 0;
-#ifdef __linux__
-        hwcap = getauxval(AT_HWCAP);
-#else
-        elf_aux_info(AT_HWCAP, &hwcap, sizeof(hwcap));
-#endif
-        if (hwcap & PPC_FEATURE_HAS_ALTIVEC) {
-            func |= AnimationInfo::CPUF_PPC_ALTIVEC;
-            printf("System info: PowerPC CPU, supports altivec\n");
-        } else {
-            printf("System info: PowerPC CPU, DOES NOT support altivec\n");
-        }
-        AnimationInfo::setCpufuncs(func);
-    }
-#elif defined(USE_PPC_GFX) && (defined(MACOSX) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__))
-    // Determine if this PPC CPU supports AltiVec (Roto)
-    {
-        unsigned int func = AnimationInfo::CPUF_NONE;
-        int altivec_present = 0;
+    AnimationInfo::gfx = AcceleratedGraphicsFunctions::accelerated();
 
-        size_t length = sizeof(altivec_present);
-#if defined(MACOSX)
-        int error = sysctlbyname("hw.optional.altivec", &altivec_present, &length, NULL, 0);
-#elif defined(__FreeBSD__)
-        int error = sysctlbyname("hw.altivec", &altivec_present, &length, NULL, 0);
-#else
-        int mib[] = { CTL_MACHDEP, CPU_ALTIVEC };
-        int error = sysctl(mib, sizeof(mib)/sizeof(mib[0]), &altivec_present, &length, NULL, 0);
-#endif
-        if(error) {
-            AnimationInfo::setCpufuncs(AnimationInfo::CPUF_NONE);
-            return;
-        }
-        if(altivec_present) {
-            func |= AnimationInfo::CPUF_PPC_ALTIVEC;
-            printf("System info: PowerPC CPU, supports altivec\n");
-        } else {
-            printf("System info: PowerPC CPU, DOES NOT support altivec\n");
-        }
-        AnimationInfo::setCpufuncs(func);
-    }
-#else
-    AnimationInfo::setCpufuncs(AnimationInfo::CPUF_NONE);
-#endif
-
+    renderTimesFile      = NULL;
     disable_rescale_flag = false;
     edit_flag            = false;
     fullscreen_mode      = false;
@@ -788,7 +720,16 @@ void PonscripterLabel::enableWheelDownAdvance()
 
 void PonscripterLabel::disableCpuGfx()
 {
-    AnimationInfo::setCpufuncs(AnimationInfo::CPUF_NONE);
+    AnimationInfo::gfx = AcceleratedGraphicsFunctions::basic();
+}
+
+
+void PonscripterLabel::recordRenderTimes(const char* file) {
+    renderTimesFile = fopen(file, "w");
+    if (!renderTimesFile) {
+        fprintf(stderr, "Failed to open %s to record render times to, disabling\n", file);
+    }
+    fputs("Frame,Type,Time\n", renderTimesFile);
 }
 
 
@@ -846,21 +787,17 @@ int makeFolder(pstring *path) {
 /* Local_GetSavePath() is the fallback for if steam is defined,
    but SteamAPI_Init failed, or if the user requests a local save dir */
 #ifdef WIN32
-pstring Local_GetSavePath()
+pstring Local_GetSavePathParent()
 {
     /* These defines are used elsewhere. They are normally created in the non-steam GetSavePath fn */
 #define CSIDL_COMMON_APPDATA 0x0023 // for [Profiles]\All Users\Application Data
 #define CSIDL_APPDATA        0x001a // for [Profiles]\[User]\Application Data
     /* Assume the working-dir is where we want our save path
        . We could use GetModuleFileNameW if this is an issue */
-    pstring rv = "saves/";
-    if(makeFolder(&rv) == 0) {
-      return rv;
-    }
     return "";
 }
 #elif defined(MACOSX)
-pstring Local_GetSavePath()
+pstring Local_GetSavePathParent()
 {
     pstring rv = "";
 
@@ -897,20 +834,10 @@ pstring Local_GetSavePath()
         }
     }
 
-    rv += "saves/";
-
-    if (makeFolder(&rv) == 0)
-        return rv;
-
-    // If that fails, die.
-    CFOptionFlags *alert_flags;
-    CFUserNotificationDisplayAlert(0, kCFUserNotificationStopAlertLevel, NULL, NULL, NULL,
-        CFSTR("Save Directory Failure"),
-        CFSTR("Could not create save directory."), NULL, NULL, NULL, alert_flags);
-    exit(1);
+    return rv;
 }
 #else // LINUX and hope everything else is linux-like
-pstring Local_GetSavePath() // POSIX-ish version
+pstring Local_GetSavePathParent() // POSIX-ish version
 {
     char *programPath = (char *)malloc(PATH_MAX);
     size_t pathLen = PATH_MAX;
@@ -933,37 +860,88 @@ pstring Local_GetSavePath() // POSIX-ish version
     char *programDir = strdup(dirname(programPath));
     free(programPath);
 
-    pstring rv = pstring(programDir) + "/saves/";
+    pstring rv = pstring(programDir) + "/";
     free(programDir);
 
-    if(makeFolder(&rv) == 0)
-        return rv;
-
-    return "";
+    return rv;
 }
 #endif //WIN32 / OSX / LINUX
+pstring Local_GetSavePath(const pstring& local_savedir) {
+    pstring rv = Local_GetSavePathParent() + (local_savedir ? local_savedir : "saves/");
+    if (makeFolder(&rv) != 0) {
+        PonscripterMessage(Error, "Unable to create save directory", "Unable to create save directory at " + rv + ", will not be able to save");
+    }
+    return rv;
+}
 
 #ifdef STEAM
 
-pstring Steam_GetSavePath() {
-  if(SteamApps()) {
-      uint32 folderLen = PATH_MAX;
-      char *installFolder = (char *)malloc(folderLen + 1);
-      folderLen = SteamApps()->GetAppInstallDir(SteamUtils()->GetAppID(),
-                installFolder, folderLen);
-      if(folderLen > PATH_MAX) {
-          installFolder = (char *)realloc((void *)installFolder, folderLen);
-          folderLen = SteamApps()->GetAppInstallDir(SteamUtils()->GetAppID(),
-                    installFolder, folderLen);
-      }
-      pstring rv = pstring(installFolder) + "/saves/";
+pstring Steam_GetSavePath(const pstring& local_savedir) {
+    // Attempt to read the save path from saveloc.txt
+    // An empty saveloc.txt is created by the 07th-mod installer on steam installations
+    // In that case, if we can't connect to steam, alert the user to prevent it changing in the future (if they play with steam running later)
+    pstring savedirdir = Local_GetSavePathParent();
+    pstring saveloc = savedirdir + "saveloc.txt";
 
-      if(makeFolder(&rv) == 0) {
-        return rv;
-      }
-  }
-  fprintf(stderr, "Unable to get steam's save path; falling back to relative save path.\n");
-  return Local_GetSavePath();
+    FILE* savelocfile = fopen(saveloc, "r");
+    char path[512] = { 0 };
+    pstring savelocContent;
+    if (savelocfile) {
+        while (fread(path, 1, sizeof(path)-1, savelocfile)) {
+            savelocContent += path;
+        }
+        fclose(savelocfile);
+    }
+    savelocContent = pstring(pstr_split_first(savelocContent, '\n').first).trim();
+    if (savelocContent) {
+        // Make sure there is some kind of slash at the end, otherwise the path will be interpreted as a file instead of a directory
+        // This only should happen if the saveloc file is edited manually, and the user does not add a slash.
+        if(!(savelocContent.ends_with("/") || savelocContent.ends_with("\\")))
+        {
+            savelocContent += "/";
+        }
+
+        struct stat info;
+        if (stat(path, &info) != 0 || !S_ISDIR(info.st_mode))
+        {
+            PonscripterMessage(Error, "Last Save Location Not Found", "The last used save location, '" + savelocContent + "', can't be opened.\n\nIf this is a Steam copy of the game, you should edit the contents of the " + saveloc + " file so that it is blank to use the default Steam location. You can also manually edit it to set the save folder.\n\nIf this isn't actually a Steam copy of the game, delete the file " + saveloc);
+            exit(-1);
+        }
+
+        return savelocContent;
+    }
+    
+    if(SteamApps()) {
+        uint32 folderLen = PATH_MAX;
+        char *installFolder = (char *)malloc(folderLen + 1);
+        folderLen = SteamApps()->GetAppInstallDir(SteamUtils()->GetAppID(),
+                                                  installFolder, folderLen);
+        if(folderLen > PATH_MAX) {
+            installFolder = (char *)realloc((void *)installFolder, folderLen);
+            folderLen = SteamApps()->GetAppInstallDir(SteamUtils()->GetAppID(),
+                                                      installFolder, folderLen);
+        }
+        pstring rv = pstring(installFolder) + (local_savedir ? "/" + local_savedir : "/saves/");
+        free(installFolder);
+
+        if(makeFolder(&rv) == 0) {
+            savelocfile = fopen(saveloc, "w");
+            if (savelocfile) {
+                fwrite((const char*)rv, rv.length(), 1, savelocfile);
+                fclose(savelocfile);
+            }
+            return rv;
+        }
+        savelocfile = NULL; // steam dir not writable, probably never will be
+    }
+
+    if (savelocfile) {
+        PonscripterMessage(Error, "Initial Save Location Setup - Steam Not Running", "Steam needs to be running to setup the save location.\n\nPlease relaunch the game with Steam running.\n\nIf this isn't actually a steam copy of the game, delete the file " + saveloc);
+        exit(-1);
+    }
+
+    fprintf(stderr, "Unable to get steam's save path; falling back to relative save path.\n");
+    return Local_GetSavePath(local_savedir);
 }
 
 #endif //STEAM
@@ -1070,12 +1048,12 @@ pstring Platform_GetSavePath(const pstring& gameid)
 }
 #endif
 
-pstring PonscripterLabel::getSavePath(const pstring gameid) {
+pstring PonscripterLabel::getSavePath(const pstring gameid, const pstring& local_savedir) {
 #ifdef STEAM
-    return Steam_GetSavePath();
+    return Steam_GetSavePath(local_savedir);
 #else
     #ifdef LOCAL_SAVEDIR
-        return Local_GetSavePath();
+        return Local_GetSavePath(local_savedir);
     #else
         #ifdef WIN32
         return Platform_GetSavePath(gameid, current_user_appdata);
@@ -1192,7 +1170,7 @@ int PonscripterLabel::init(const char* preferred_script)
 
     // Try to determine an appropriate location for saved games.
     if (!script_h.save_path)
-        script_h.save_path = getSavePath(getGameId(script_h));
+        script_h.save_path = getSavePath(getGameId(script_h), script_h.local_savedir);
 
     // If we couldn't find anything obvious, fall back on ONScripter
     // behaviour of putting saved games in the archive path.
@@ -1247,10 +1225,6 @@ int PonscripterLabel::init(const char* preferred_script)
     image_surface = SDL_CreateRGBSurface(0, 1, 1, 32, 0x00ff0000,
                         0x0000ff00, 0x000000ff, 0xff000000);
 
-    screen_surface = SDL_CreateRGBSurface(0, screen_width, screen_height, 32, 0x00ff0000,
-                        0x0000ff00, 0x000000ff, 0xff000000);
-
-
     accumulation_surface =
         AnimationInfo::allocSurface(screen_width, screen_height);
     backup_surface =
@@ -1266,10 +1240,8 @@ int PonscripterLabel::init(const char* preferred_script)
     SDL_SetSurfaceAlphaMod(effect_src_surface, SDL_ALPHA_OPAQUE);
     SDL_SetSurfaceAlphaMod(effect_dst_surface, SDL_ALPHA_OPAQUE);
     SDL_SetSurfaceAlphaMod(effect_tmp_surface, SDL_ALPHA_OPAQUE);
-    SDL_SetSurfaceAlphaMod(screen_surface, SDL_ALPHA_OPAQUE);
 
     SDL_SetSurfaceBlendMode(accumulation_surface, SDL_BLENDMODE_NONE);
-    SDL_SetSurfaceBlendMode(screen_surface, SDL_BLENDMODE_NONE);
     SDL_SetSurfaceBlendMode(backup_surface, SDL_BLENDMODE_NONE);
     SDL_SetSurfaceBlendMode(effect_src_surface, SDL_BLENDMODE_NONE);
     SDL_SetSurfaceBlendMode(effect_dst_surface, SDL_BLENDMODE_NONE);
@@ -1495,7 +1467,7 @@ void PonscripterLabel::flush(int refresh_mode, SDL_Rect* rect, bool clear_dirty_
                     flushDirect(dirty_rect.history[i], refresh_mode, false);
                 }
 
-                flushDirect(*rect, refresh_mode);
+                flushDirect(dirty_rect.bounding_box, REFRESH_NONE_MODE);
             }
         }
     }
@@ -1506,14 +1478,23 @@ void PonscripterLabel::flush(int refresh_mode, SDL_Rect* rect, bool clear_dirty_
 
 void PonscripterLabel::flushDirect(SDL_Rect &rect, int refresh_mode, bool updaterect)
 {
-  refreshSurface(accumulation_surface, &rect, refresh_mode);
+    refreshSurface(accumulation_surface, &rect, refresh_mode);
 
-  if(!updaterect) return;
-  SDL_BlitSurface(accumulation_surface, &rect, screen_surface, &rect);
+    if(!updaterect) return;
 
-  if(SDL_UpdateTexture(screen_tex, NULL, screen_surface->pixels, screen_surface->pitch)) {
-    fprintf(stderr,"Error updating texture: %s\n", SDL_GetError());
-  }
+    SDL_Rect r = rect;
+    if (r.w > accumulation_surface->w) r.w = accumulation_surface->w;
+    if (r.h > accumulation_surface->h) r.h = accumulation_surface->h;
+    char* px = (char *)accumulation_surface->pixels + accumulation_surface->pitch * r.y;
+    px += accumulation_surface->format->BytesPerPixel * r.x;
+    Uint64 begin = renderTimesFile ? SDL_GetPerformanceCounter() : 0;
+    if(SDL_UpdateTexture(screen_tex, &r, px, accumulation_surface->pitch)) {
+        fprintf(stderr,"Error updating texture: %s\n", SDL_GetError());
+    }
+    if (renderTimesFile) {
+        float msElapsed = (SDL_GetPerformanceCounter() - begin) * perfMultiplier;
+        fprintf(renderTimesFile, "%llu,UpdateTexture,%f\n", frameNo, msElapsed);
+    }
 }
 
 

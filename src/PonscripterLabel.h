@@ -117,6 +117,7 @@ public:
     void setPreferredWidth(const char *widthstr);
     void enableButtonShortCut();
     void enableWheelDownAdvance();
+    void recordRenderTimes(const char* file);
     void disableCpuGfx();
     void disableRescale();
     void enableEdit();
@@ -124,7 +125,7 @@ public:
     void setGameIdentifier(const char *gameid);
     void setMaskType(int mask_type) { png_mask_type = mask_type; }
 
-    pstring getSavePath(pstring gameid);
+    pstring getSavePath(pstring gameid, const pstring& local_savedir);
 
     Uint32 getRefreshRateDelay();
 
@@ -368,11 +369,11 @@ protected:
     void mousePressEvent(SDL_MouseButtonEvent* event);
     void mouseWheelEvent(SDL_MouseWheelEvent* event);
     void mouseMoveEvent(SDL_MouseMotionEvent* event);
-    void timerEvent();
+    bool timerEvent();
     void flushEventSub(SDL_Event &event);
     void flushEvent();
     void startTimer(int count);
-    void advancePhase(int count = 0);
+    void advancePhase(int count = 0, bool relativeToNow = true);
     void queueRerender();
     void trapHandler();
     void initSDL();
@@ -404,6 +405,20 @@ private:
            ALPHA_BLEND_MULTIPLE       = 2,
            ALPHA_BLEND_FADE_MASK      = 3,
            ALPHA_BLEND_CROSSFADE_MASK = 4 };
+public:
+    enum RenderEventType {
+        RENDER_EVENT_UNKNOWN = 0,
+        RENDER_EVENT_TEXT,
+        RENDER_EVENT_EFFECT,
+        RENDER_EVENT_LOAD_AUDIO,
+        RENDER_EVENT_LOAD_IMAGE,
+    };
+    /// For render time logging
+    RenderEventType lastRenderEvent;
+private:
+    FILE*  renderTimesFile;
+    Uint64 frameNo;
+    double perfMultiplier;
 
     // ----------------------------------------
     // start-up options
@@ -487,7 +502,6 @@ private:
     SDL_Surface* backup_surface;
     // Text + Select_image + Tachi image + background:
 public:
-    SDL_Surface* screen_surface;
     SDL_Window *screen;
     SDL_Renderer *renderer;
     SDL_Texture *screen_tex;
@@ -900,7 +914,7 @@ private:
     /* ---------------------------------------- */
     /* Image processing */
     SDL_Surface* loadImage(const pstring& file_name, bool* has_alpha = NULL, bool twox = false, bool isflipped = false);
-    SDL_Surface *createRectangleSurface(const pstring& filename);
+    SDL_Surface *createRectangleSurface(const char* filename);
     SDL_Surface *createSurfaceFromFile(const pstring& filename, int *location);
 
     void shiftCursorOnButton(int diff);

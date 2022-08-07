@@ -51,9 +51,10 @@ struct WAVE_HEADER {
 
 typedef struct
 {
-  SMPEG_Frame *frame;
-  int dirty;
-  SDL_mutex *lock;
+    SMPEG_Frame *frame;
+    int dirty;
+    SDL_mutex *lock;
+    SDL_Texture *texture;
 } update_context;
 
 extern bool ext_music_play_once_flag;
@@ -198,6 +199,7 @@ int PonscripterLabel::playSound(const pstring& filename, int format,
         buffer = music_buffer;
     }
     else{
+        if (lastRenderEvent < RENDER_EVENT_LOAD_AUDIO) { lastRenderEvent = RENDER_EVENT_LOAD_AUDIO; }
         buffer = new unsigned char[length];
         script_h.cBR->getFile( filename, buffer );
     }
@@ -508,7 +510,6 @@ struct SubAndTexture {
 };
 typedef std::vector<SubAndTexture*> olvec;
 static olvec overlays;
-static SDL_Texture *video_texture = NULL;
 /*
    Each of these is only needed if there are subs.
    Otherwise we can just pop it straight on the screen
@@ -556,19 +557,8 @@ int PonscripterLabel::playMPEG(const pstring& filename, bool click_flag, bool lo
 
         SMPEG_enablevideo(mpeg_sample, 1);
 
-        update_context c;
-        c.dirty = 0;
+        update_context c = {};
         c.lock = SDL_CreateMutex();
-
-        /* SMPEG wants the width to be a multiple of 16 */
-        int texture_width = (screen_width + 15) & ~15;
-        int texture_height = (screen_height + 15) & ~15;
-
-
-        /* Video texture contains each video frame which is then rendered */
-        video_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_YV12, SDL_TEXTUREACCESS_STREAMING, texture_width, texture_height);
-        SDL_SetTextureAlphaMod(video_texture, SDL_ALPHA_OPAQUE);
-        SDL_SetTextureBlendMode(video_texture, SDL_BLENDMODE_BLEND);
 
         if(subtitles) {
           /* Pairs of sub-AnimationInfos and sub-textures. The texture is rendered on top of the video_texture */
@@ -685,8 +675,8 @@ int PonscripterLabel::playMPEG(const pstring& filename, bool click_flag, bool lo
                         overlay->trans = subtitles.alpha(s.number);
 
                         /* Create the texture that we'll use to render this */
-                        overlay_tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, texture_width, texture_height);
-                        SDL_UpdateTexture(overlay_tex, &overlay->pos, overlay->image_surface->pixels, overlay->image_surface->pitch);
+                        overlay_tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, overlay->pos.w, overlay->pos.h);
+                        SDL_UpdateTexture(overlay_tex, /* whole tex */ NULL, overlay->image_surface->pixels, overlay->image_surface->pitch);
                         SDL_SetTextureBlendMode(overlay_tex, SDL_BLENDMODE_BLEND);
                         SDL_SetTextureAlphaMod(overlay_tex, overlay->trans);
 
@@ -698,41 +688,36 @@ int PonscripterLabel::playMPEG(const pstring& filename, bool click_flag, bool lo
                 }
             }
             if(c.dirty) {
-              SDL_mutexP(c.lock);
-              c.dirty = 0; //Flag that we're handling this; if a new frame appears we should deal with it too.
+                SDL_mutexP(c.lock);
+                c.dirty = 0; //Flag that we're handling this; if a new frame appears we should deal with it too.
 
-              SDL_RenderClear(renderer); // stops flickering garbage
-
-              SDL_Rect r;
-              r.x = 0; r.y = 0; r.w = c.frame->image_width; r.h = c.frame->image_height;
-              SDL_UpdateTexture(video_texture, &r, c.frame->image, c.frame->image_width);
-#ifdef USE_2X_MODE
-              //Mion: so 2X Umineko will play its video correctly
-              // (note: when adding proper "movie" cmd support, will probably
-              // use some specialized variation of the video_texture
-              // and/or the SDL_Rect for RenderCopy to handle pos&size args)
-              SDL_Rect r2;
-              // chronotrig: Bumping the video 2px down and to the right to 
-              // hide unsightly green line, should probably be cleaned up
-              // chronotrig again: now this is causing trouble for windows only
-              // Removing the old change to see if it fixes anything
-              r2.x = -2; r2.y = -2; r2.w = r.w * 2 + 4; r2.h = r.h * 2 + 4;
-              SDL_RenderCopy(renderer, video_texture, &r, &r2);
-#else
-              SDL_RenderCopy(renderer, video_texture, &r, &r);
-#endif
-
-              if(subtitles) {
-                /* render any subs onto the screen */
-                for(olvec::iterator it = overlays.begin(); it != overlays.end(); ++it) {
-                  if((*it) && (*it)->ai && (*it)->tex) {
-                    SDL_RenderCopy(renderer, (*it)->tex, &(*it)->ai->pos, &(*it)->ai->pos);
-                  }
+                if (!c.texture) {
+                    // Match the texture size to the video size, otherwise you end up with unset data from outside the video bleeding in when upscaling
+                    c.texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_YV12, SDL_TEXTUREACCESS_STREAMING, c.frame->image_width, c.frame->image_height);
+                    // YUV textures have no alpha!
+                    SDL_SetTextureBlendMode(c.texture, SDL_BLENDMODE_NONE);
                 }
-              }
 
-              SDL_mutexV(c.lock);
-              SDL_RenderPresent(renderer);
+                SDL_Rect r;
+                r.x = 0; r.y = 0; r.w = c.frame->image_width; r.h = c.frame->image_height;
+                SDL_UpdateTexture(c.texture, &r, c.frame->image, c.frame->image_width);
+
+                // image_width and image_height are the size of the full image, including padding
+                // w and h are the size of the actual video
+                r.w = c.frame->w; r.h = c.frame->h;
+                SDL_RenderCopy(renderer, c.texture, &r, /* fullscreen */ NULL);
+
+                if(subtitles) {
+                    /* render any subs onto the screen */
+                    for(olvec::iterator it = overlays.begin(); it != overlays.end(); ++it) {
+                        if((*it) && (*it)->ai && (*it)->tex) {
+                            SDL_RenderCopy(renderer, (*it)->tex, /* entire src */ NULL, &(*it)->ai->pos);
+                        }
+                    }
+                }
+
+                SDL_mutexV(c.lock);
+                SDL_RenderPresent(renderer);
             }
             SDL_Delay(10);
         }
@@ -744,8 +729,9 @@ int PonscripterLabel::playMPEG(const pstring& filename, bool click_flag, bool lo
             Mix_HookMusic(NULL, NULL);
         }
         SMPEG_delete(mpeg_sample);
-        SDL_DestroyTexture(video_texture);
-        video_texture = NULL;
+        if (c.texture) {
+            SDL_DestroyTexture(c.texture);
+        }
 
         if (different_spec) {
             //restart mixer with the old audio spec
@@ -791,7 +777,7 @@ void PonscripterLabel::playAVI(const pstring& filename, bool click_flag)
 
     AVIWrapper* avi = new AVIWrapper();
     if (avi->init(abs_fname, false) == 0
-        && avi->initAV(screen_surface, audio_open_flag) == 0) {
+        && avi->initAV(accumulation_surface, audio_open_flag) == 0) {
         if (avi->play(click_flag)) endCommand();
     }
 

@@ -96,6 +96,7 @@ all: \$(target_headers) \$(target_lib)
 	cp \$< \$@
 
 \$(target_lib): % : \$(steam_lib)
+	@mkdir -p ../../lib
 	cp \$< \$@
 clean:
 	rm -f \$(target_headers) \$(target_lib)

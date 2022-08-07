@@ -24,6 +24,10 @@
 
 // Incorporates code originally from AnimationInfo.cpp,
 // copyright (c) 2001-2008 Ogapee
+#pragma once
+#include <stdlib.h>
+#include <SDL.h>
+
 #ifdef BPP16
 #define BPP 16
 #define BLENDMASK  0x07e0f81f
@@ -65,6 +69,37 @@
 #define RGBMASK 0x00ffffff
 #define RBMASK  0x00ff00ff
 #define MEDGRAY 0x88888888
+
+#ifdef __clang__
+# define HELPER_FN inline __attribute__((always_inline, artificial))
+#else
+# define HELPER_FN inline __attribute__((always_inline))
+#endif
+
+static HELPER_FN bool is_aligned(const void* ptr, size_t alignment) {
+    return reinterpret_cast<size_t>(ptr) % alignment == 0;
+}
+
+template <typename Px>
+static HELPER_FN Px *getPointerToRow(SDL_Surface *surface, int y) {
+    char* buf = static_cast<char*>(surface->pixels) + surface->pitch * y;
+    return reinterpret_cast<Px*>(buf);
+}
+
+static Uint32 blendMaskOnePixel(Uint32 s1, Uint32 s2, Uint32 msk, Uint32 mask_value) {
+    Uint32 mask2 = 0;
+    msk &= 0xFF;
+    if (mask_value > msk) {
+        mask2 = mask_value - msk;
+    }
+    if (mask2 > 0xFF) {
+        mask2 = 0xFF;
+    }
+    Uint32 mask1 = mask2 ^ 0xFF;
+    Uint32 mask_rb = (((s1 & RBMASK) * mask1 + (s2 & RBMASK) * mask2) >> 8) & RBMASK;
+    Uint32 mask_g = (((s1 & GMASK) * mask1 + (s2 & GMASK) * mask2) >> 8) & GMASK;
+    return mask_rb | mask_g;
+}
 
 #define SET_PIXEL32(rgb, alpha) {\
     *dst_buffer = (rgb);\
@@ -269,40 +304,16 @@
     } \
 }
 
-
-#define MEAN_PIXEL(){\
-    int result = ((int)(*src1) + (int)(*src2)) / 2;  \
-    (*dst) = result; \
+static HELPER_FN unsigned char mean_pixel(unsigned char src1, unsigned char src2) {
+    return ((int)src1 + (int)src2) / 2;
 }
 
-#define BASIC_MEAN(){\
-    while (--n > 0) {  \
-        MEAN_PIXEL();  \
-        ++dst; ++src1; ++src2;  \
-    }  \
+static HELPER_FN void addto_pixel(unsigned char& dst, unsigned char src) {
+    int result = dst + src;
+    dst = (result < 255) ? result : 255;
 }
 
-#define ADDTO_PIXEL(){\
-    int result = (*dst) + (*src);  \
-    (*dst) = (result < 255) ? result : 255; \
+static HELPER_FN void subfrom_pixel(unsigned char& dst, unsigned char src) {
+    int result = dst - src;
+    dst = (result > 0) ? result : 0;
 }
-
-#define BASIC_ADDTO(){\
-    while (--n > 0) {  \
-        ADDTO_PIXEL();  \
-        ++dst, ++src;  \
-    }  \
-}
-
-#define SUBFROM_PIXEL(){\
-    int result = (*dst) - (*src);  \
-    (*dst) = (result > 0) ? result : 0;  \
-}
-
-#define BASIC_SUBFROM(){\
-    while(--n > 0) {  \
-        SUBFROM_PIXEL();  \
-        ++dst, ++src;  \
-    } \
-}
-

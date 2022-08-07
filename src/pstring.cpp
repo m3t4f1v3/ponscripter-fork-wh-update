@@ -1,5 +1,7 @@
 #include "defs.h"
 
+const pstring psubstr::emptystr;
+
 pstring parseTags(const pstring& src)
 {
 //fputs("parseTags: ", stdout);
